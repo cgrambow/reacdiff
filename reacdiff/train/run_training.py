@@ -10,7 +10,7 @@ def run_training(args):
     print('Loading data')
     data = datamod.Dataset(
         datamod.load_data(args.data_path),
-        datamod.load_data(args.targets_path, targets=True),
+        datamod.load_data(args.targets_path),
         None if args.data_path2 is None else datamod.load_data(args.data_path2)
     )
 

@@ -1,3 +1,4 @@
+import h5py
 import numpy as np
 
 import reacdiff.utils as utils
@@ -49,16 +50,21 @@ class Dataset:
             return Dataset(self.data[item], self.targets[item], self.data2[item])
 
 
-def load_data(path, targets=False):
-    if targets:
-        return np.random.rand(100, 26)
-    data = np.random.rand(100, 50, 128, 128)
-    data = np.expand_dims(data, axis=-1)
+def load_data(path, max_read=None, key='data'):
+    """
+    :param path: An HDF5 file.
+    :param max_read: Maximum number of samples to read.
+    :param key: Data key in HDF5 file.
+    :return: Numpy array of data
+    """
+    with h5py.File(path, 'r') as f:
+        data = f[key][:] if max_read is None else f[key][:max_read]
     return data
 
 
-def save_data(data, path):
-    raise NotImplementedError
+def save_data(data, path, key='data'):
+    with h5py.File(path, 'w') as f:
+        f.create_dataset(key, data=data)
 
 
 def split_data(data, splits=(0.9, 0.05, 0.05), seed=None):
