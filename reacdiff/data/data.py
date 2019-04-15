@@ -7,13 +7,14 @@ import reacdiff.utils as utils
 class Dataset:
     """Contains time-dependent state data and associated targets."""
 
-    def __init__(self, data, targets, data2=None):
+    def __init__(self, data, targets=None, data2=None):
         """
         :param data: An array of observable states.
         :param targets: An array of targets corresponding to the observable states.
         :param data2: A second array of observable states if there are two observables.
         """
-        assert len(data) == len(targets)
+        if targets is not None:
+            assert len(data) == len(targets)
         self.data = data
         self.targets = targets
         self.data2 = data2
@@ -21,6 +22,7 @@ class Dataset:
             assert len(self.data2) == len(self.data)
 
     def shuffle(self, seed=None):
+        assert self.targets is not None
         if self.data2 is None:
             self.data, self.targets = utils.shuffle_arrays(
                 self.data, self.targets, seed=seed)
@@ -30,7 +32,8 @@ class Dataset:
 
     def save(self, name):
         save_data(self.data, name + '_states.h5')
-        save_csv(self.targets, name + '_targets.csv')
+        if self.targets is not None:
+            save_csv(self.targets, name + '_targets.csv')
         if self.data2 is not None:
             save_data(self.data2, name + '_states2.h5')
 
@@ -44,6 +47,7 @@ class Dataset:
         return len(self.data)
 
     def __getitem__(self, item):
+        assert self.targets is not None
         if self.data2 is None:
             return Dataset(self.data[item], self.targets[item])
         else:
