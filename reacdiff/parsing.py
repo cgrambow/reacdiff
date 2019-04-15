@@ -11,6 +11,23 @@ def parse_dataprep_args():
     return parser.parse_args()
 
 
+def parse_predict_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--data_path', type=str, required=True,
+                        help='Path to data containing states for prediction task')
+    parser.add_argument('--model', type=str, required=True,
+                        help='Path to trained model')
+    parser.add_argument('--data_path2', type=str,
+                        help='Path to additional observable states for prediction')
+    parser.add_argument('--save_path', type=str, default=os.path.join(os.getcwd(), 'preds.csv'),
+                        help='Path to save predictions to')
+    parser.add_argument('--batch_size', type=int, default=32,
+                        help='Batch size')
+    return parser.parse_args()
+
+
 def parse_train_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
