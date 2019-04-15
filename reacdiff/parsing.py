@@ -2,6 +2,15 @@ import argparse
 import os
 
 
+def parse_dataprep_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--data_path', type=str, required=True,
+                        help='Path to HDF5 data file')
+    return parser.parse_args()
+
+
 def parse_train_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

@@ -1,3 +1,4 @@
+import h5py
 import numpy as np
 
 import reacdiff.utils as utils
@@ -28,10 +29,10 @@ class Dataset:
                 self.data, self.data2, self.targets, seed=seed)
 
     def save(self, name):
-        save_data(self.data, name + '_states')
-        save_data(self.targets, name + '_targets')
+        save_data(self.data, name + '_states.h5')
+        save_csv(self.targets, name + '_targets.csv')
         if self.data2 is not None:
-            save_data(self.data2, name + '_states2')
+            save_data(self.data2, name + '_states2.h5')
 
     def get_data(self):
         return [self.data] if self.data2 is None else [self.data, self.data2]
@@ -49,16 +50,35 @@ class Dataset:
             return Dataset(self.data[item], self.targets[item], self.data2[item])
 
 
-def load_data(path, targets=False):
-    if targets:
-        return np.random.rand(100, 26)
-    data = np.random.rand(100, 50, 128, 128)
-    data = np.expand_dims(data, axis=-1)
+def load_data(path, max_read=None, key='data'):
+    """
+    :param path: An HDF5 file.
+    :param max_read: Maximum number of samples to read.
+    :param key: Data key in HDF5 file.
+    :return: Numpy array of data
+    """
+    with h5py.File(path, 'r') as f:
+        data = f[key][:] if max_read is None else f[key][:max_read]
     return data
 
 
-def save_data(data, path):
-    raise NotImplementedError
+def load_csv(path, max_read=None):
+    with open(path) as f:
+        data = [[float(v) for v in line.strip().split(',')] for line in f]
+    if max_read is not None:
+        data = data[:max_read]
+    return np.array(data)
+
+
+def save_data(data, path, key='data'):
+    with h5py.File(path, 'w') as f:
+        f.create_dataset(key, data=data)
+
+
+def save_csv(data, path):
+    with open(path, 'w') as f:
+        for d in data:
+            f.write(','.join(str(di) for di in d) + '\n')
 
 
 def split_data(data, splits=(0.9, 0.05, 0.05), seed=None):
