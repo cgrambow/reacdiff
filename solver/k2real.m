@@ -19,6 +19,7 @@ function varargout = k2real(y,N,y00,varargin)
   ps = inputParser;
   addParameter(ps,'mode','plot');
   addParameter(ps,'caxis','auto');
+  addParameter(ps,'colorbar','off');
   addParameter(ps,'GridSize',[defaultrow,defaultcolumn]);
   ps.KeepUnmatched = true;
   parse(ps,varargin{:});
@@ -76,6 +77,11 @@ function varargout = k2real(y,N,y00,varargin)
     end
     ax = gca;
     ax.XTick=[]; ax.YTick=[];
+    if isequal(params.colorbar,'on')
+      colorbar;
+    else
+      colorbar(params.colorbar);
+    end
   end
   if isequal(params.caxis,'max') && vis == 1
     for i=1:Nt

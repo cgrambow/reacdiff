@@ -35,7 +35,7 @@ if rungpu
   k2 = gpuArray(k2);
 end
 
-saveresult = true;
+saveresult = false;
 if saveresult
   filepath = '/home/hbozhao/Dropbox (MIT)/2.168 Project/Data/turing';
   mat = matfile(filepath,'Writable',true);
@@ -48,7 +48,10 @@ saveind = 0;
 Nt = 1100;
 dt = 0.6;
 outputstep = 200:100:Nt;
-nall = 10000;
+dt = 0.2;
+Nt = 5000;
+outputstep = [1,100:100:1000] ;%[300,1000,2000:1000:Nt];
+nall = 1;
 thresh = n*1e-5;
 termination = @(t,y) event_gradient(t,y,k2(:),thresh);
 if saveresult
@@ -112,5 +115,9 @@ end
 
 if ~saveresult
   figure;
-  k2real(yall(1:naccept,1:n).',N);%,[],'GridSize',[9,9]);
+  if ndims(yall) == 3
+    k2real(reshape(permute(yall(1:naccept,1:n,:),[1,3,2]),[],n).',N,[],'colorbar','on');
+  else
+    k2real(yall(1:naccept,1:n,:).',N);%,[],'GridSize',[9,9]);
+  end
 end

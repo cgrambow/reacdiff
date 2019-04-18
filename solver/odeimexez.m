@@ -55,7 +55,7 @@ for step = 2:Nt
     else
       yout(:,outputid) = transform(y);
     end
-    outputid = outputid + 1;
+    outputid = min(outputid+1,length(outputstep));
   end
   if ~isempty(termination)
     if termination(t(step),y)
