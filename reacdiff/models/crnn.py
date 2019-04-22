@@ -25,7 +25,9 @@ class CRNN:
         """
         self.conv_input_shape = input_shape
         self.crnn_input_shape = (time_steps,) + input_shape
-        self.inputs = observables * [keras.layers.Input(shape=self.crnn_input_shape)]
+        if observables > 1:
+            raise NotImplementedError('Can only use one observable for now')
+        self.inputs = keras.layers.Input(shape=self.crnn_input_shape)
 
         self.encoder = None
         self.rnn = None
@@ -72,18 +74,10 @@ class CRNN:
         """
         :param kwargs: DenseNet args
         """
-        # Encode each observable with the same RNN
         self.build_rnn(**kwargs)
-        rnn_outputs = [self.rnn(tensor) for tensor in self.inputs]
-
-        # Output layer
-        if len(rnn_outputs) > 1:
-            rnn_outputs = keras.layers.Concatenate(name='output_concat')(rnn_outputs)
-        else:
-            rnn_outputs = rnn_outputs[0]
+        rnn_outputs = self.rnn(self.inputs)
         outputs = keras.layers.Dense(self.output_dim, name='output')(rnn_outputs)
-
-        self.model = keras.models.Model(self.inputs, outputs, name='crnn')
+        self.model = keras.models.Model([self.inputs], outputs, name='crnn')
 
 
 def rnn(units, return_sequences=False, gpu=True, name=''):
