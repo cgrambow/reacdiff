@@ -7,15 +7,13 @@ class CRNN:
     """A recurrent neural network with convolutional (DenseNet) encoding"""
 
     def __init__(self,
-                 time_steps=100,
-                 input_shape=(128, 128, 1),
+                 input_shape=(100, 128, 128, 1),
                  output_dim=26,
                  observables=1,
                  rnn_layers=1,
                  rnn_units=100,
                  use_gpu=True):
         """
-        :param time_steps: int, number of time steps.
         :param input_shape: shape of input tensor.
         :param output_dim: int, number of output units.
         :param observables: int, number of observables.
@@ -23,14 +21,12 @@ class CRNN:
         :param rnn_units: int, number of units in RNN
         :param use_gpu: bool, use GPU.
         """
-        self.conv_input_shape = input_shape
-        self.crnn_input_shape = (time_steps,) + input_shape
         if observables > 1:
             raise NotImplementedError('Can only use one observable for now')
-        self.inputs = keras.layers.Input(shape=self.crnn_input_shape)
+        self.inputs = keras.layers.Input(shape=input_shape)
 
-        self.encoder = None
-        self.rnn = None
+        self.encoder_outputs = None
+        self.rnn_outputs = None
         self.model = None
 
         self.output_dim = output_dim
@@ -42,13 +38,11 @@ class CRNN:
         """
         :param kwargs: DenseNet args
         """
-        inputs = keras.layers.Input(shape=self.crnn_input_shape)
-
-        # Encode each time step with same DenseNet
-        dense_net = conv.DenseNet(input_shape=self.conv_input_shape, **kwargs)
+        # Build DenseNet encoder
+        dense_net = conv.DenseNet(inputs=self.inputs, **kwargs)
         dense_net.build()
-        self.encoder = dense_net.model
-        seqs = keras.layers.TimeDistributed(self.encoder, name='encoder')(inputs)
+        self.encoder_outputs = dense_net.outputs
+        seqs = self.encoder_outputs
 
         # RNN
         if self.rnn_layers > 1:
@@ -63,20 +57,17 @@ class CRNN:
             # Use skip connections between RNN layers if using multiple RNN layers
             seqs = keras.layers.Concatenate(name='rnn_concat')(rnn_layers)
 
-        rnn_outputs = rnn(self.rnn_units,
-                          return_sequences=False,
-                          gpu=self.use_gpu,
-                          name='rnn_last')(seqs)
-
-        self.rnn = keras.models.Model(inputs, rnn_outputs, name='rnn')
+        self.rnn_outputs = rnn(self.rnn_units,
+                               return_sequences=False,
+                               gpu=self.use_gpu,
+                               name='rnn_last')(seqs)
 
     def build(self, **kwargs):
         """
         :param kwargs: DenseNet args
         """
         self.build_rnn(**kwargs)
-        rnn_outputs = self.rnn(self.inputs)
-        outputs = keras.layers.Dense(self.output_dim, name='output')(rnn_outputs)
+        outputs = keras.layers.Dense(self.output_dim, name='output')(self.rnn_outputs)
         self.model = keras.models.Model([self.inputs], outputs, name='crnn')
 
 

@@ -1,13 +1,17 @@
 import keras
 
 import reacdiff.models.layers as layers
+import reacdiff.utils as utils
+
+# Wrap layers using TimeDistributed
+_wrapped_layers = utils.LayersWrapper(keras.layers)
 
 
 class DenseNet:
     """A densely connected convolutional encoder"""
 
     def __init__(self,
-                 input_shape=(128, 128, 1),
+                 inputs=keras.layers.Input(shape=(128, 128, 1)),
                  feat_maps=16,
                  first_conv_size=7,
                  first_conv_stride=2,
@@ -20,7 +24,7 @@ class DenseNet:
                  bottleneck=True,
                  flatten_last=False):
         """
-        :param input_shape: shape of input tensor.
+        :param inputs: input tensor.
         :param feat_maps: int, number of feature maps in first convolutional layer.
         :param first_conv_size: int, filter size in first convolutional layer.
         :param first_conv_stride: int, strides in first convolutional layer.
@@ -33,8 +37,8 @@ class DenseNet:
         :param bottleneck: bool, use 1x1 bottleneck convolution in dense blocks.
         :param flatten_last: bool, flatten instead of global pool before output.
         """
-        self.inputs = keras.layers.Input(shape=input_shape)
-        self.model = None
+        self.inputs = inputs
+        self.outputs = None
 
         # First convolution and pool settings
         self.feat_maps = feat_maps
@@ -55,21 +59,21 @@ class DenseNet:
 
     def build(self):
         # First convolutional and pooling layers
-        x = keras.layers.Conv2D(self.feat_maps, self.first_conv_size,
-                                strides=self.first_conv_stride,
-                                padding='same',
-                                use_bias=False,
-                                kernel_initializer=keras.initializers.he_uniform(),
-                                name='conv')(self.inputs)
+        x = _wrapped_layers.Conv2D(self.feat_maps, self.first_conv_size,
+                                   strides=self.first_conv_stride,
+                                   padding='same',
+                                   use_bias=False,
+                                   kernel_initializer=keras.initializers.he_uniform(),
+                                   name='conv')(self.inputs)
         if self.first_pool_size > 0:
-            x = keras.layers.BatchNormalization(axis=layers.bn_axis, epsilon=1.001e-5,
-                                                gamma_regularizer=keras.regularizers.l2(1e-4),
-                                                name='bn')(x)
-            x = keras.layers.Activation('relu', name='relu')(x)
-            x = keras.layers.MaxPooling2D(self.first_pool_size,
-                                          strides=self.first_pool_stride,
-                                          padding='same',
-                                          name='pool')(x)
+            x = _wrapped_layers.BatchNormalization(epsilon=1.001e-5,
+                                                   gamma_regularizer=keras.regularizers.l2(1e-4),
+                                                   name='bn')(x)
+            x = _wrapped_layers.Activation('relu', name='relu')(x)
+            x = _wrapped_layers.MaxPooling2D(self.first_pool_size,
+                                             strides=self.first_pool_stride,
+                                             padding='same',
+                                             name='pool')(x)
 
         # Dense and transition blocks
         for i, b in enumerate(self.blocks):
@@ -86,8 +90,6 @@ class DenseNet:
 
         # Convert to vector
         if self.flatten_last:
-            outputs = keras.layers.Flatten(name='flatten')(x)
+            self.outputs = _wrapped_layers.Flatten(name='flatten')(x)
         else:
-            outputs = keras.layers.GlobalAveragePooling2D(name='global_pool')(x)
-
-        self.model = keras.models.Model(self.inputs, outputs, name='dense_net')
+            self.outputs = _wrapped_layers.GlobalAveragePooling2D(name='global_pool')(x)

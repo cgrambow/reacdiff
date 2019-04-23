@@ -34,8 +34,7 @@ def run_training(args):
 
     # Build model
     crnn = models.CRNN(
-        time_steps=train_data.data.shape[1],
-        input_shape=train_data.data.shape[2:],
+        input_shape=train_data.data.shape[1:],
         output_dim=train_data.targets.shape[1],
         observables=train_data.get_num_observables(),
         rnn_layers=args.rnn_layers,

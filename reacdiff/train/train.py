@@ -30,8 +30,6 @@ def train(crnn, data, save_dir,
     optimizer = keras.optimizers.Adam(lr=lr_start, clipnorm=max_norm)
     crnn.model.compile(optimizer=optimizer, loss='mse', metrics=[utils.rmse, utils.mae])
     if not quiet:
-        crnn.encoder.summary()
-        crnn.rnn.summary()
         crnn.model.summary()
 
     model_name = 'model.{epoch:03d}.h5'

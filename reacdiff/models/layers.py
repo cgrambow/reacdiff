@@ -1,6 +1,9 @@
 import keras
 
-bn_axis = 3 if keras.backend.image_data_format() == 'channels_last' else 1
+import reacdiff.utils as utils
+
+# Wrap layers using TimeDistributed
+_wrapped_layers = utils.LayersWrapper(keras.layers)
 
 
 def dense_block(x, blocks, name='', **kwargs):
@@ -14,7 +17,7 @@ def dense_block(x, blocks, name='', **kwargs):
     """
     for i in range(blocks):
         x1 = conv_block(x, name=name + '/block' + str(i + 1), **kwargs)
-        x = keras.layers.Concatenate(axis=bn_axis, name=name + '/concat' + str(i + 1))([x, x1])
+        x = keras.layers.Concatenate(name=name + '/concat' + str(i + 1))([x, x1])
     return x
 
 
@@ -28,16 +31,16 @@ def transition_block(x, dropout=0.0, reduction=0.5, name='', **kwargs):
     # Returns
         output tensor for the block.
     """
-    x = keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
-                                        gamma_regularizer=keras.regularizers.l2(1e-4),
-                                        name=name + '/bn')(x)
-    x = keras.layers.Activation('relu', name=name + '/relu')(x)
-    x = keras.layers.Conv2D(int(keras.backend.int_shape(x)[bn_axis] * reduction), 1,
-                            use_bias=False,
-                            kernel_initializer=keras.initializers.he_uniform(),
-                            name=name + '/conv')(x)
-    x = keras.layers.Dropout(dropout, name=name + '/dropout')(x)
-    x = keras.layers.AveragePooling2D(2, strides=2, name=name + '/pool')(x)
+    x = _wrapped_layers.BatchNormalization(epsilon=1.001e-5,
+                                           gamma_regularizer=keras.regularizers.l2(1e-4),
+                                           name=name + '/bn')(x)
+    x = _wrapped_layers.Activation('relu', name=name + '/relu')(x)
+    x = _wrapped_layers.Conv2D(int(keras.backend.int_shape(x)[-1] * reduction), 1,
+                               use_bias=False,
+                               kernel_initializer=keras.initializers.he_uniform(),
+                               name=name + '/conv')(x)
+    x = _wrapped_layers.Dropout(dropout, name=name + '/dropout')(x)
+    x = _wrapped_layers.AveragePooling2D(2, strides=2, name=name + '/pool')(x)
     return x
 
 
@@ -53,23 +56,23 @@ def conv_block(x, growth_rate=12, dropout=0.0, bottleneck=True, name=''):
         Output tensor for the block.
     """
     if bottleneck:
-        x = keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
-                                            gamma_regularizer=keras.regularizers.l2(1e-4),
-                                            name=name + '_0_bn')(x)
-        x = keras.layers.Activation('relu', name=name + '_0_relu')(x)
-        x = keras.layers.Conv2D(4 * growth_rate, 1,
-                                use_bias=False,
-                                kernel_initializer=keras.initializers.he_uniform(),
-                                name=name + '_0_conv')(x)
-        x = keras.layers.Dropout(dropout, name=name + '_0_dropout')(x)
-    x = keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
-                                        gamma_regularizer=keras.regularizers.l2(1e-4),
-                                        name=name + '_bn')(x)
-    x = keras.layers.Activation('relu', name=name + '_relu')(x)
-    x = keras.layers.Conv2D(growth_rate, 3,
-                            padding='same',
-                            use_bias=False,
-                            kernel_initializer=keras.initializers.he_uniform(),
-                            name=name + '_conv')(x)
-    x = keras.layers.Dropout(dropout, name=name + '_dropout')(x)
+        x = _wrapped_layers.BatchNormalization(epsilon=1.001e-5,
+                                               gamma_regularizer=keras.regularizers.l2(1e-4),
+                                               name=name + '_0_bn')(x)
+        x = _wrapped_layers.Activation('relu', name=name + '_0_relu')(x)
+        x = _wrapped_layers.Conv2D(4 * growth_rate, 1,
+                                   use_bias=False,
+                                   kernel_initializer=keras.initializers.he_uniform(),
+                                   name=name + '_0_conv')(x)
+        x = _wrapped_layers.Dropout(dropout, name=name + '_0_dropout')(x)
+    x = _wrapped_layers.BatchNormalization(epsilon=1.001e-5,
+                                           gamma_regularizer=keras.regularizers.l2(1e-4),
+                                           name=name + '_bn')(x)
+    x = _wrapped_layers.Activation('relu', name=name + '_relu')(x)
+    x = _wrapped_layers.Conv2D(growth_rate, 3,
+                               padding='same',
+                               use_bias=False,
+                               kernel_initializer=keras.initializers.he_uniform(),
+                               name=name + '_conv')(x)
+    x = _wrapped_layers.Dropout(dropout, name=name + '_dropout')(x)
     return x
