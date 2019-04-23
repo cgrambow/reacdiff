@@ -33,7 +33,7 @@ def train(crnn, data, save_dir,
         crnn.rnn.summary()
         crnn.model.summary()
 
-    model_name = 'model.{epoch:03d}.h5'
+    model_name = 'model.h5'
     model_path = os.path.join(save_dir, model_name)
 
     def lr_schedule(epoch, _):
