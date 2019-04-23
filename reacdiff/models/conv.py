@@ -11,7 +11,7 @@ class DenseNet:
     """A densely connected convolutional encoder"""
 
     def __init__(self,
-                 inputs=keras.layers.Input(shape=(128, 128, 1)),
+                 inputs=keras.layers.Input(shape=(128, 128, 1), name='conv_input'),
                  feat_maps=16,
                  first_conv_size=7,
                  first_conv_stride=2,
