@@ -47,9 +47,9 @@ class CRNN:
 
         # RNN
         if self.rnn_layers > 1:
-            rnn_layers = []
+            rnn_layers = [seqs]
             for i in range(self.rnn_layers - 1):
-                prev_layer = seqs if i == 0 else rnn_layers[-1]
+                prev_layer = rnn_layers[-1]
                 rnn_layers.append(rnn(self.rnn_units,
                                       return_sequences=True,
                                       gpu=self.use_gpu,
