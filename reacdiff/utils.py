@@ -37,7 +37,8 @@ class LayersWrapper:
                    'AveragePooling2D',
                    'MaxPooling2D',
                    'Flatten',
-                   'GlobalAveragePooling2D'}
+                   'GlobalAveragePooling2D',
+                   'Dense'}
 
     def __init__(self, module):
         for name in self.layer_names:

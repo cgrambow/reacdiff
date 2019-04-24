@@ -96,6 +96,8 @@ def parse_train_args():
                         help='Do not use bottleneck convolution in dense blocks')
     parser.add_argument('--flatten_last', action='store_true',
                         help='Flatten instead of global pool before output')
+    parser.add_argument('--latent_units', type=int, default=100,
+                        help='Number of units in latent representation prior to RNN')
 
     # RNN arguments
     parser.add_argument('--rnn_layers', type=int, default=1,

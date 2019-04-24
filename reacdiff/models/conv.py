@@ -22,7 +22,8 @@ class DenseNet:
                  dropout=0.0,
                  reduction=0.5,
                  bottleneck=True,
-                 flatten_last=False):
+                 flatten_last=False,
+                 latent_units=100):
         """
         :param inputs: input tensor.
         :param feat_maps: int, number of feature maps in first convolutional layer.
@@ -36,6 +37,7 @@ class DenseNet:
         :param reduction: float, compression rate in transition blocks.
         :param bottleneck: bool, use 1x1 bottleneck convolution in dense blocks.
         :param flatten_last: bool, flatten instead of global pool before output.
+        :param latent_units: int, size of final hidden representation.
         """
         self.inputs = inputs
         self.outputs = None
@@ -56,6 +58,7 @@ class DenseNet:
 
         # Output settings
         self.flatten_last = flatten_last
+        self.latent_units = latent_units
 
     def build(self):
         # First convolutional and pooling layers
@@ -90,6 +93,11 @@ class DenseNet:
 
         # Convert to vector
         if self.flatten_last:
-            self.outputs = _wrapped_layers.Flatten(name='flatten')(x)
+            vec = _wrapped_layers.Flatten(name='flatten')(x)
         else:
-            self.outputs = _wrapped_layers.GlobalAveragePooling2D(name='global_pool')(x)
+            vec = _wrapped_layers.GlobalAveragePooling2D(name='global_pool')(x)
+
+        self.outputs = _wrapped_layers.Dense(self.latent_units,
+                                             activation='relu',
+                                             kernel_initializer=keras.initializers.he_uniform(),
+                                             name='dense')(vec)

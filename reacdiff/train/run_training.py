@@ -52,7 +52,8 @@ def run_training(args):
         dropout=args.dropout,
         reduction=args.reduction,
         bottleneck=not args.no_bottleneck,
-        flatten_last=args.flatten_last
+        flatten_last=args.flatten_last,
+        latent_units=args.latent_units
     )
 
     model_dir = os.path.join(args.save_dir, 'model')
