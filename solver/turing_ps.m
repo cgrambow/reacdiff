@@ -24,16 +24,6 @@ y0 = [yu0(:); yv0(:)];
 JD = -k2(:)*D;
 J = JD(:) + reshape(ones(n,1)*A2,[],1);
 
-rungpu = true;
-if rungpu
-  y0 = gpuArray(y0);
-  A1 = gpuArray(A1);
-  b = gpuArray(b);
-  lb = gpuArray(lb);
-  ub = gpuArray(ub);
-  J = gpuArray(J);
-  k2 = gpuArray(k2);
-end
 
 saveresult = false;
 if saveresult
@@ -45,12 +35,12 @@ end
 Nsave = 1000;
 saveind = 0;
 
-Nt = 1100;
-dt = 0.6;
-outputstep = 200:100:Nt;
-dt = 0.2;
-Nt = 5000;
-outputstep = [1,100:100:1000] ;%[300,1000,2000:1000:Nt];
+Nt = 1000;
+dt = 1;
+outputstep = 100:100:Nt;
+% dt = 0.2;
+% Nt = 5000;
+% outputstep = [1,100:200:1000] ;%[300,1000,2000:1000:Nt];
 nall = 1;
 thresh = n*1e-5;
 termination = @(t,y) event_gradient(t,y,k2(:),thresh);
@@ -71,11 +61,24 @@ A1 = reshape(A1,1,[]);
 nparams = length(A1);
 sigma = 0.05*eye(nparams);
 if saveresult
-  yall = zeros(nblock,N(1),N(2),length(outputstep),2,'gpuArray');
+  yall = zeros(nblock,N(1),N(2),length(outputstep),2);
 else
-  yall = zeros(nblock,n*2,length(outputstep),'gpuArray');
+  yall = zeros(nblock,n*2,length(outputstep));
 end
-A1all = zeros(nblock,nparams,'gpuArray');
+A1all = zeros(nblock,nparams);
+
+rungpu = false;
+if rungpu
+  y0 = gpuArray(y0);
+  A1 = gpuArray(A1);
+  b = gpuArray(b);
+  lb = gpuArray(lb);
+  ub = gpuArray(ub);
+  J = gpuArray(J);
+  k2 = gpuArray(k2);
+  A1all = gpuArray(A1all);
+  yall = gpuArray(yall);
+end
 tic;
 while naccept < nall
   A1new = A1 + mvnrnd(zeros(1,nparams),sigma);
