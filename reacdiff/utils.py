@@ -12,6 +12,12 @@ def shuffle_arrays(*args, seed=None):
     return tuple(a[p] for a in args)
 
 
+def add_noise(data, frac=0.05, seed=None):
+    std = np.std(data)
+    rng = np.random.RandomState(seed=seed)
+    return data + frac * std * rng.randn(*data.shape)
+
+
 def rmse(y_true, y_pred):
     return backend.sqrt(backend.mean(backend.square(y_pred - y_true)))
 

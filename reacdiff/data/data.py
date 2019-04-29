@@ -30,6 +30,11 @@ class Dataset:
             self.data, self.data2, self.targets = utils.shuffle_arrays(
                 self.data, self.data2, self.targets, seed=seed)
 
+    def add_noise(self, frac, seed=None):
+        self.data = utils.add_noise(self.data, frac=frac, seed=seed)
+        if self.data2 is not None:
+            self.data2 = utils.add_noise(self.data2, frac=frac, seed=seed + 1)
+
     def save(self, name):
         save_data(self.data, name + '_states.h5')
         if self.targets is not None:

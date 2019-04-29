@@ -14,6 +14,11 @@ def run_training(args):
         None if args.data_path2 is None else datamod.load_data(args.data_path2)
     )
 
+    # Add noise
+    if args.noise_frac > 0:
+        print(f'Adding {100*args.noise_frac:.2f}% noise with seed {args.seed}')
+        data.add_noise(args.noise_frac, seed=args.seed)
+
     # Split data
     print(f'Splitting data with seed {args.seed}')
     train_data, val_data, test_data = datamod.split_data(data, splits=args.splits, seed=args.seed)

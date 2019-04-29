@@ -42,6 +42,8 @@ def parse_train_args():
                         help='Path to data containing additional observable states')
     parser.add_argument('--save_dir', type=str, default=os.getcwd(),
                         help='Directory where model checkpoints will be saved')
+    parser.add_argument('--noise_frac', type=float, default=0.0,
+                        help='Fraction of standard deviation of data to add as noise')
     parser.add_argument('--splits', type=float, nargs=3, default=[0.9, 0.05, 0.05],
                         help='Split proportions for train/validation/test sets')
     parser.add_argument('--save_test_data', action='store_true',
