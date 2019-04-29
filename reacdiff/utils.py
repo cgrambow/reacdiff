@@ -26,6 +26,14 @@ def mae(y_true, y_pred):
     return backend.mean(backend.abs(y_pred - y_true))
 
 
+def rmse_np(y_true, y_pred):
+    return np.sqrt(np.mean((y_pred - y_true)**2))
+
+
+def mae_np(y_true, y_pred):
+    return np.mean(np.abs(y_pred - y_true))
+
+
 def tdist(obj):
     @functools.wraps(obj)
     def wrapper(*args, **kwargs):

@@ -75,6 +75,10 @@ def parse_train_args():
     parser.add_argument('--max_norm', type=float, default=2.0,
                         help='Maximum gradient norm before clipping occurs')
 
+    # General model arguments
+    parser.add_argument('--ensemble_size', type=int, default=1,
+                        help='Number of models to train as ensemble')
+
     # Encoder arguments
     parser.add_argument('--feat_maps', type=int, default=16,
                         help='Number of feature maps in first convolutional layer')
