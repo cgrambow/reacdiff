@@ -15,12 +15,14 @@ A1lb = [-0.5,-1.5;-0.5,-1.5];
 A1ub = [1.5,0.5;1.5,0.5];
 
 rng(1);
-u0 = u0 + sigma(1)*randn(N);
-v0 = v0 + sigma(2)*randn(N);
-yu0 = fftn(u0);
-yv0 = fftn(v0);
-y0 = [yu0(:); yv0(:)];
 reinitialize = true;
+if ~reinitialize
+  u0 = u0 + sigma(1)*randn(N);
+  v0 = v0 + sigma(2)*randn(N);
+  yu0 = fftn(u0);
+  yv0 = fftn(v0);
+  y0 = [yu0(:); yv0(:)];
+end
 
 [k2,k] = formk(N,L);
 
@@ -72,11 +74,7 @@ for batch = 1:nbatch
       if LSA(Anew,D) && (norm(Anew,inf)<5*Anorm)
         fnlin = @(t,y) turing_nlin_bd(t,y,A1new,b,lb,ub,N);
         if reinitialize
-          u0 = u0 + sigma(1)*randn(N);
-          v0 = v0 + sigma(2)*randn(N);
-          yu0 = fftn(u0);
-          yv0 = fftn(v0);
-          y0 = [yu0(:); yv0(:)];
+          y0 = [reshape(fftn(u0 + sigma(1)*randn(N)),[],1); reshape(fftn(v0 + sigma(2)*randn(N)),[],1)];
         end
         [~,y,et] = odeimexez(fnlin,J,dt,Nt,y0,[],outputstep,termination,rungpu,transform);
         if ~et
