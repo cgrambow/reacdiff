@@ -1,0 +1,12 @@
+filepath = '/home/hbozhao/Dropbox (MIT)/2.168 Project/Data/turing_pca';
+mat = matfile(filepath);
+ysize = size(mat,'y');
+data = reshape(mat.y(1:ysize(1),1:ysize(2),1:ysize(3),ysize(4),1),ysize(1),[]);
+[coeff,score,latent,tsquared] = pca(data);
+figure;
+semilogy(latent);
+saveas(gcf,[filepath,'_latent'],'png');
+figure;
+plotmatrix(score(:,1:10));
+saveas(gcf,[filepath,'_latent_pdf'],'png');
+save([filepath,'_result'],'coeff','latent');
