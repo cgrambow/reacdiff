@@ -106,7 +106,7 @@ end
 figure;
 for i=1:9
   subplot(3,3,i);
-  imagesc(squeeze(mat.y(randi(nall),:,:,end,1)));
+  imagesc(squeeze(mat.y(randi(nall),1:N(1),1:N(2),length(outputstep),1)));
   colormap gray;
   axis equal;
   ax = gca;
