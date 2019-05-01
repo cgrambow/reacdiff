@@ -20,6 +20,7 @@ v0 = v0 + sigma(2)*randn(N);
 yu0 = fftn(u0);
 yv0 = fftn(v0);
 y0 = [yu0(:); yv0(:)];
+reinitialize = true;
 
 [k2,k] = formk(N,L);
 
@@ -29,7 +30,7 @@ J = JD(:) + reshape(ones(n,1)*A2,[],1);
 
 saveresult = true;
 if saveresult
-  filepath = '/home/hbozhao/Dropbox (MIT)/2.168 Project/Data/turing_v2';
+  filepath = '/home/hbozhao/Dropbox (MIT)/2.168 Project/Data/turing_pca';
   mat = matfile(filepath,'Writable',true);
   mat.A1 = [];
   mat.y = [];
@@ -70,6 +71,13 @@ for batch = 1:nbatch
       Anew = A1new+diag(A2);
       if LSA(Anew,D) && (norm(Anew,inf)<5*Anorm)
         fnlin = @(t,y) turing_nlin_bd(t,y,A1new,b,lb,ub,N);
+        if reinitialize
+          u0 = u0 + sigma(1)*randn(N);
+          v0 = v0 + sigma(2)*randn(N);
+          yu0 = fftn(u0);
+          yv0 = fftn(v0);
+          y0 = [yu0(:); yv0(:)];
+        end
         [~,y,et] = odeimexez(fnlin,J,dt,Nt,y0,[],outputstep,termination,rungpu,transform);
         if ~et
           A1 = reshape(A1new,1,[]);
