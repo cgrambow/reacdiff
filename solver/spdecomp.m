@@ -1,4 +1,4 @@
-L = [80,80];
+L = [100,100];
 N = 2^10*[1,1];
 n = prod(N);
 kappa = 1;
@@ -15,10 +15,10 @@ k2 = k2(:);
 
 J = - kappa*k2.^2;
 
-Nt = 15000;
+Nt = 20000;
 dt = 0.01;
 fps = 30;
-outputstep = floor(linspace(1,Nt,fps*10));
+outputstep = floor(linspace(1,Nt,fps*20));
 fnlin = @(t,y) spdecomp_nlin(t,y,N,k2,omega);
 transform = @(y) reshape(real(ifftn(reshape(y,N))),[],1);
 [tout,yout] = odeimexez(fnlin,J,dt,Nt,y0,[],outputstep,[],false,transform);
