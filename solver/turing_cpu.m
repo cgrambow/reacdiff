@@ -30,7 +30,7 @@ JD = -k2(:)*D;
 J = JD(:) + reshape(ones(n,1)*A2,[],1);
 
 
-saveresult = true;
+saveresult = false;
 if saveresult
   filepath = '/home/hbozhao/Dropbox (MIT)/2.168 Project/Data/turing_pca';
   mat = matfile(filepath,'Writable',true);
@@ -39,15 +39,15 @@ if saveresult
 end
 Nbatch = 250;
 nall = 10000;
-Nbatch = 2;
-nall = 16;
+%Nbatch = 2;
+%nall = 16;
 nbatch = nall/(Nbatch*4); %must be integer
 
 Nt = 1000;
 dt = 1;
-outputstep = 100:100:Nt;
+outputstep = Nt;
 thresh = n*1e-5;
-termination = @(t,y) event_gradient(t,y,k2(:),thresh);
+termination = @(t,y,~) event_gradient(t,y,k2(:),thresh);
 if saveresult
   transform = @(y) [reshape(real(ifftn(reshape(y(1:n),N))),[],1);reshape(real(ifftn(reshape(y(n+(1:n)),N))),[],1)];
 else
@@ -64,7 +64,7 @@ tic;
 for batch = 1:nbatch
   ybatchall = zeros(4,Nbatch,N(1),N(2),length(outputstep),2);
   A1batchall = zeros(4,Nbatch,nparams);
-  for process = 1:4
+  parfor process = 1:4
     ind = 0;
     ybatch = zeros(Nbatch,N(1),N(2),length(outputstep),2);
     A1batch = zeros(Nbatch,nparams);

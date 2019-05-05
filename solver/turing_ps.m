@@ -43,7 +43,7 @@ outputstep = 100:100:Nt;
 % outputstep = [1,100:200:1000] ;%[300,1000,2000:1000:Nt];
 nall = 1;
 thresh = n*1e-5;
-termination = @(t,y) event_gradient(t,y,k2(:),thresh);
+termination = @(t,y,~) event_gradient(t,y,k2(:),thresh);
 if saveresult
   transform = @(y) [reshape(real(ifftn(reshape(y(1:n),N))),[],1);reshape(real(ifftn(reshape(y(n+(1:n)),N))),[],1)];
 else
