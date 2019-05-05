@@ -2,7 +2,9 @@ function [tout,yout,et] = odeimex(fnlin,J,h,Nt,y0,pencil,outputstep,termination,
 %easy version odeimex: fixed time step, no error control
 %h: step size
 %outputstep: an array that indicates at which step the solution is outputed (must be sorted). By default, it only returns the last step
-%termination: a function handle (t,y) that becomes true when the solver should abort the iteration. The output et is true when it's terminated early. By default, termination is empty
+%termination: a function handle (t,y,yp) that returns true or a nonzero value when the solver should abort the iteration. The output et is true or the corresponding value when it's terminated early. By default, termination is empty
+%when the solver terminates, the last column of yout is the y at the time step of termination, the unfilled yout is removed. Similarly for tout
+%y is the value at the latest time point, yp is the estimated time derivative (y-yold)/dt
 %the output yout is stored on gpu if gpu is true. For now, tout is always stored on cpu. By default, gpu is set to false.
 %transform is a function handle that transforms the output y (by default empty)
 %04/11/2019, now J can be a matrix or a column vector whose size is the same as y
@@ -43,6 +45,7 @@ et = false;
 vectorJ = all(size(J)==size(y));
 
 for step = 2:Nt
+  yold = y;
   fex = fnlin(t(step-1),y);                     % the nonlinear part is fixed in the iteration
   if vectorJ
     y = (y+h*fex)./(1-h*J);
@@ -58,8 +61,13 @@ for step = 2:Nt
     outputid = min(outputid+1,length(outputstep));
   end
   if ~isempty(termination)
-    if termination(t(step),y)
-      et = true;
+    yp = (y-yold)/h;
+    et = termination(t(step),y,yp);
+    if et
+      yout(:,outputid) = y;
+      yout(:,outputid+1:end) = [];
+      tout(:,outputid) = h*(step-1);
+      tout(:,outputid+1:end) = [];
       break;
     end
   end
