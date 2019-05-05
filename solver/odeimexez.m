@@ -64,7 +64,11 @@ for step = 2:Nt
     yp = (y-yold)/h;
     et = termination(t(step),y,yp);
     if et
-      yout(:,outputid) = y;
+      if isempty(transform)
+        yout(:,outputid) = y;
+      else
+        yout(:,outputid) = transform(y);
+      end
       yout(:,outputid+1:end) = [];
       tout(:,outputid) = h*(step-1);
       tout(:,outputid+1:end) = [];
