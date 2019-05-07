@@ -19,6 +19,10 @@ def parse_predict_args():
                         help='Path to data containing states for prediction task')
     parser.add_argument('--model', type=str, required=True,
                         help='Path to trained model')
+    parser.add_argument('--targets_path', type=str,
+                        help='Path to targets')
+    parser.add_argument('--targets_size', type=int, default=4,
+                        help='Size of target vector. Only required if targets_path is not specified.')
     parser.add_argument('--data_path2', type=str,
                         help='Path to additional observable states for prediction')
     parser.add_argument('--save_path', type=str, default=os.path.join(os.getcwd(), 'preds.csv'),
