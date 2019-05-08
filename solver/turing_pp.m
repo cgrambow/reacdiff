@@ -6,6 +6,7 @@ threshold = 3.5; %a separation of the bimodal distribution of the entire dataset
 %see for example:
 %figure; histogram(mat.y(1:ysize(1),1:ysize(2),1:ysize(3),ysize(4),1)
 feature = zeros(ysize(1),8);
+index = zeros(ysize(1),1);
 ind = 0;
 for i=1:ysize(1)
   im = squeeze(mat.y(i,1:ysize(2),1:ysize(3),ysize(4),1));
@@ -36,5 +37,7 @@ for i=1:ysize(1)
   feature(ind,7) = mean(circularity);
   %std of domain circularity
   feature(ind,8) = std(circularity);
+  index(ind) = i;
 end
 feature(ind+1:end,:) = [];
+index(ind+1:end) = [];
