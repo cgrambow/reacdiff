@@ -9,11 +9,11 @@ end
 if nargin<4
   fps = 30;
 end
-mat = matfile(data_file);
-ysize = size(mat,'y');
+mat = load(data_file);
+y = mat.y;
 
-yout = permute(squeeze(mat.y(index_video,1:ysize(2),1:ysize(3),ysize(4),1)),[2,3,4,1]);
-
+yout = permute(squeeze(y(index,:,:,end,1)),[2,3,4,1]);
+yout = yout/max(yout(:)); 
 myMovie = VideoWriter(video_file);
 set(myMovie,'FrameRate',fps);
 open(myMovie);
