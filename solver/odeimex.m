@@ -1,4 +1,4 @@
-function [tout,yout] = odeimex(fnlin,J,Nt,y0,options,pencil)
+function [tout,yout] = odeimex(fnlin,J,Nt,y0,options,pencil,JexMult,exsensFcn,dJdp)
 %a simplified ode solver adapted from ode15s
 %the backward diffusion / NDF is applied for the linear part of the equation, in particular, the propotionality constant is J, note that J is the array the same as y0 (equivalent to diagonal) for now, in the near future, generalize J to a matrix.
 %The nonlinear part of the equation is explicit, that is, at each time step, this term is dependent only on the previous time step.
@@ -9,6 +9,10 @@ function [tout,yout] = odeimex(fnlin,J,Nt,y0,options,pencil)
 %03/25/2019, now J can be a matrix or a column vector whose size is the same as y
 %pencil(b,hinvGak) should return (Mt-hinvGak*J)\b
 %right now J is constant
+%the mass matrix Mt is also constant
+%JexMult is the multiplying function for the jacobian of the explicit term (argument: ys, t, y)
+%exsensFcn is the sensitivity of the explicit term
+%dJdp is the sensitivity of the multiplying matrix of the implicit term
 if nargin<5
   options = [];
 end
@@ -20,11 +24,24 @@ rtol = odeget(options,'RelTol',1e-3,'fast');
 atol = odeget(options,'AbsTol',1e-6,'fast');
 normcontrol = strcmp(odeget(options,'NormControl','off','fast'),'on');
 
+%Forward sensitivity analysis
+FSA = moreodeget(moreoptions,'FSA',false,'fast');
+FSAerror = moreodeget(moreoptions,'FSAerror',false,'fast');
+ys = moreodeget(moreoptions,'ys0',[],'fast');
+ysp = moreodeget(moreoptions,'ysp0',[],'fast');
+if isempty(ys) || isempty(ysp)
+  FSA = false;
+end
+
 neq = length(y0);
+ninst = size(ys,2);
 
 threshold = atol / rtol;
 if normcontrol
   normy = norm(y0);
+  if FSA
+    normys = vecnorm(ys);
+  end
 end
 
 tdir = 1;
@@ -50,6 +67,7 @@ else
 end
 invGa = 1 ./ (G .* (1 - alpha));
 erconst = alpha .* G + (1 ./ (2:6)');
+G3(1,1,:) = G; % for FSA
 difU = [ -1, -2, -3, -4,  -5;           % difU is its own inverse!
           0,  1,  3,  6,  10;
           0,  0, -1, -4, -10;
@@ -89,9 +107,15 @@ k = 1;                                  % start at order 1 with BDF1
 K = 1;                                  % K = 1:k
 klast = k;
 abshlast = absh;
+abshFSA = absh; %record the absh and k at previous FSA stepping
+kFSA = k;
 
 dif = zeros(neq,maxk+2);
 dif(:,1) = h * yp;
+if FSA
+  difs = zeros(neq,ninst,maxk+2);
+  difs(:,:,1) = h * ysp;
+end
 
 hinvGak = h * invGa(k);
 nconhk = 0;                             % steps taken with current h and k
@@ -140,10 +164,11 @@ for step = 2:Nt
       invwt = 1 ./ max(max(abs(y),abs(ynew)),threshold);
     end
 
+    rhs = Mt*(ynew-psi) + hinvGak*fex;
     if vectorJ
-      ynew2 = (ynew-psi+hinvGak*fex)./(1-hinvGak*J);
+      ynew2 = rhs ./ (Mt - hinvGak*J);
     else
-      ynew2 = pencil(ynew-psi+hinvGak*fex,hinvGak);
+      ynew2 = pencil(rhs,hinvGak);
     end
 
     difkp1 = ynew2-ynew;
@@ -156,7 +181,54 @@ for step = 2:Nt
       err = norm(difkp1 .* invwt,inf) * erconst(k);
     end
 
-    if err > rtol                       % Failed step
+    fail = (err > rtol);
+
+    if ~fail && FSA %successful, move on to FSA
+      if abshFSA ~= absh || kFSA ~= k
+        difRU = cumprod((kI - 1 - kJ*(absh/abshFSA)) ./ kI) * difU;
+        difRU4d = permute(difRU(K,K),[3,4,1,2]);
+        difs(:,:,K) = squeeze(sum(difs(:,:,K) .* difRU4d, 3));
+        abshFSA = absh;
+        kFSA = k;
+      end
+      %time step is already known
+      %the following is fixed since time step is fixed and so is difs
+      psis = sum(difs(:,:,K) .* G3(1,1,K),3) * invGa(k);
+      preds = ys + sum(difs(:,:,K),3);
+      ynews = preds;
+      if normcontrol
+        normynews = vecnorm(ynews);
+        invwts = 1 ./ max(max(normys,normynews),threshold);
+      else
+        invwts = 1 ./ max(max(abs(ys),abs(ynews)),threshold);
+      end
+
+      dfexdy = feval(Jex,t,y);
+      sensval= feval(exsensFcn,t,y);
+      fs = dfexdy*ys + (dJdp*ynew + sensval);
+      rhss = Mt*(ynews-psis) + hinvGak*fs;
+      if vectorJ
+        ynews2 = rhss ./ (Mt - hinvGak*J);
+      else
+        ynews2 = pencil(rhss,hinvGak);
+      end
+      difkp1s = ynews2-ynews;
+      ynews = ynews2;
+
+      if FSAerror
+        if normcontrol
+          errs = (vecnorm(difkp1s) .* invwts) * erconst(k);
+        else
+          errs = vecnorm(difkp1s .* invwts,inf) * erconst(k);
+        end
+        err = max(err,max(errs));
+        if err > rtol
+          fail = true;
+        end
+      end
+    end
+
+    if fail
       if absh <= hmin
         warning(message('MATLAB:ode15s:IntegrationTolNotMet', sprintf( '%e', t ), sprintf( '%e', hmin )));
         tout(step:end) = [];
@@ -261,8 +333,14 @@ for step = 2:Nt
   % Advance the integration one step.
   t = tnew;
   y = ynew;
+  if FSA
+    ys = ynews;
+  end
   if normcontrol
     normy = normynew;
+    if FSA
+      normys = normynews;
+    end
   end
   tout(step) = t;
   yout(:,step) = y;
