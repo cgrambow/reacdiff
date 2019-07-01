@@ -13,7 +13,6 @@ function varargout = odeimex(fnlin,J,tspan,y0,options,pencil,moreoptions,JexMult
 %exsensFcn is the sensitivity of the explicit term
 %dJdp is the sensitivity of the multiplying matrix of the implicit term
 
-solver_name = 'ode15s';
 
 if nargin<5
   options = [];
@@ -69,6 +68,10 @@ ysp = moreodeget(moreoptions,'ysp0',[],'fast');
 if isempty(ys) || isempty(ysp)
   FSA = false;
 end
+interpFcn = moreodeget(moreoptions,'interpFcn',[],'fast');
+haveInterpFcn = ~isempty(interpFcn);
+%usage: initialize if flag = 'init', while all the other arguments are empty. At the end of each time step taken by the solver, the input to interpFcn is flag = '',info,tnew,ynew,h,dif,k,idxNonNegative, everything needed to do interpolationm the output of interpFcn is info. Note that info is passed from one time step to another and is the output of myode15s varargout. When successfully finalizing, the flag is 'done', when the solver fails, the flag is 'fail', both with the same inputs as before.
+%note that if haveInterpFcn, the output will be the output of interpFcn when flag is done, no t, or y or sol wil be outputted!
 
 neq = length(y0);
 ninst = size(ys,2);
@@ -196,6 +199,10 @@ if nargout > 0
   end
 end
 
+if haveInterpFcn
+  interp_info = feval(interpFcn,'init',[],[],[],[],[],[],[]);
+end
+
 % THE MAIN LOOP
 
 done = false;
@@ -321,6 +328,11 @@ while ~done
     if fail
       if absh <= hmin
         warning(message('MATLAB:ode15s:IntegrationTolNotMet', sprintf( '%e', t ), sprintf( '%e', hmin )));
+        if haveInterpFcn
+          interp_info = feval(interpFcn,'fail',interp_info,tnew,ynew,h,dif,k,idxNonNegative);
+          varargout = interp_info;
+          return;
+        end
         solver_output = odefinalize_ez(sol,nout,tout,yout,kvec,dif3d,difs4d,idxNonNegative,ysout);
         if nargout > 0
           varargout = solver_output;
@@ -457,6 +469,9 @@ while ~done
     end
   end
 
+  if haveInterpFcn
+    interp_info = feval(interpFcn,'',interp_info,tnew,ynew,h,dif,k,idxNonNegative);
+  end
 
   klast = k;
   abshlast = absh;
@@ -525,6 +540,11 @@ while ~done
   end
 end
 
+if haveInterpFcn
+  interp_info = feval(interpFcn,'done',interp_info,tnew,ynew,h,dif,k,idxNonNegative);
+  varargout = interp_info;
+  return;
+end
 solver_output = odefinalize_ez(sol,nout,tout,yout,kvec,dif3d,difs4d,idxNonNegative,ysout);
 if nargout > 0
   varargout = solver_output;
