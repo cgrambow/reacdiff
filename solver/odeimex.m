@@ -1,28 +1,65 @@
-function [tout,yout] = odeimex(fnlin,J,Nt,y0,options,pencil,JexMult,exsensFcn,dJdp)
+function varargout = odeimex(fnlin,J,tspan,y0,options,pencil,moreoptions,JexMult,exsensFcn,dJdp)
 %a simplified ode solver adapted from ode15s
-%the backward diffusion / NDF is applied for the linear part of the equation, in particular, the propotionality constant is J, note that J is the array the same as y0 (equivalent to diagonal) for now, in the near future, generalize J to a matrix.
+%the backward diffusion / NDF is applied for the linear part of the equation, in particular, the propotionality constant is J, note that J can be an array the same as y0 (equivalent to diagonal), in this case, the mass matrix must be diagonal as well. Alternatively, J can be a matrix, in which case pencil is needed.
 %The nonlinear part of the equation is explicit, that is, at each time step, this term is dependent only on the previous time step.
 %only ODE (not DAE) is supported right now.
 %dy/dt = J*y + fnlin
 %Nt is the number of time steps
 %the format of yout is different from typical ode, each column corresponds to a time point given in tout, which is a column vector.
-%03/25/2019, now J can be a matrix or a column vector whose size is the same as y
 %pencil(b,hinvGak) should return (Mt-hinvGak*J)\b
 %right now J is constant
 %the mass matrix Mt is also constant
 %JexMult is the multiplying function for the jacobian of the explicit term (argument: ys, t, y)
 %exsensFcn is the sensitivity of the explicit term
 %dJdp is the sensitivity of the multiplying matrix of the implicit term
+
+solver_name = 'ode15s';
+
 if nargin<5
   options = [];
 end
+if nargin<7
+  moreoptions = [];
+end
+%output
+FcnHandlesUsed  = true;
+haveInterpFcn = false;
+output_sol = (FcnHandlesUsed && (nargout==1) && ~haveInterpFcn);      % sol = odeXX(...)
+output_ty  = (~output_sol && (nargout > 0) && ~haveInterpFcn);  % [t,y,...] = odeXX(...)
+sol = []; kvec = []; dif3d = []; difs4d = [];
+if output_sol
+  sol.solver = solver_name;
+  sol.extdata.odefun = ode;
+  sol.extdata.options = options;
+  sol.extdata.varargin = varargin;
+end
+
 maxk = odeget(options,'MaxOrder',5,'fast');
 bdf = strcmp(odeget(options,'BDF','off','fast'),'on');
 htry = abs(odeget(options,'InitialStep',[],'fast'));
 hmax = abs(odeget(options,'MaxStep',inf,'fast'));
 rtol = odeget(options,'RelTol',1e-3,'fast');
 atol = odeget(options,'AbsTol',1e-6,'fast');
+Mt = odeget(options,'Mass',[],'fast');
 normcontrol = strcmp(odeget(options,'NormControl','off','fast'),'on');
+%copied from odearguments
+htspan = abs(tspan(2) - tspan(1));
+tspan = tspan(:);
+ntspan = length(tspan);
+t0 = tspan(1);
+next = 2;       % next entry in tspan
+tfinal = tspan(end);
+tdir = sign(tfinal - t0);
+refine = max(1,odeget(options,'Refine',1,'fast'));
+if ntspan > 2
+  outputAt = 'RequestedPoints';         % output only at tspan points
+elseif refine <= 1
+  outputAt = 'SolverSteps';             % computed points, no refinement
+else
+  outputAt = 'RefinedSteps';            % computed points, with refinement
+  S = (1:refine-1) / refine;
+end
+idxNonNegative = [];
 
 %Forward sensitivity analysis
 FSA = moreodeget(moreoptions,'FSA',false,'fast');
@@ -35,6 +72,9 @@ end
 
 neq = length(y0);
 ninst = size(ys,2);
+if isempty(Mt)
+  Mt = speye(neq);
+end
 
 threshold = atol / rtol;
 if normcontrol
@@ -44,16 +84,13 @@ if normcontrol
   end
 end
 
-tdir = 1;
-t = 0;
+t = t0;
 y = y0;
-tout = zeros(Nt,1);
-yout = zeros(neq,Nt);
-tout(1) = t;
-yout(:,1) = y;
+
 vectorJ = all(size(J)==size(y));
 if vectorJ
   yp = fnlin(t,y) + J.*y;
+  Mtdiag = full(diag(Mt));
 else
   yp = fnlin(t,y) + J*y;
 end
@@ -120,10 +157,50 @@ end
 hinvGak = h * invGa(k);
 nconhk = 0;                             % steps taken with current h and k
 
+% Allocate memory if we're generating output.
+nout = 0;
+tout = []; yout = [];
+ysout = [];
+if nargout > 0
+  if output_sol
+    chunk = min(max(100,50*refine), refine+floor((2^11)/neq));
+    tout = zeros(1,chunk);
+    yout = zeros(neq,chunk);
+    kvec = zeros(1,chunk);
+    dif3d = zeros(neq,maxk+2,chunk);
+    if FSA
+      ysout = zeros(neqsout,ninst,chunk);
+      difs4d = zeros(neqsout,ninst,maxk+2,chunk);
+    end
+  else
+    if ntspan > 2                         % output only at tspan points
+      tout = zeros(1,ntspan);
+      yout = zeros(neq,ntspan);
+      if FSA
+        ysout = zeros(neqsout,ninst,ntspan);
+      end
+    else                                  % alloc in chunks
+      chunk = min(max(100,50*refine), refine+floor((2^13)/neq));
+      tout = zeros(1,chunk);
+      yout = zeros(neq,chunk);
+      if FSA
+        ysout = zeros(neqsout,ninst,chunk);
+      end
+    end
+  end
+  nout = 1;
+  tout(nout) = t;
+  yout(:,nout) = y;
+  if FSA
+    ysout(:,:,nout) = ys;
+  end
+end
+
 % THE MAIN LOOP
 
+done = false;
 at_hmin = false;
-for step = 2:Nt
+while ~done
 
   hmin = 16*eps(t);
   absh = min(hmax, max(hmin, absh));
@@ -136,6 +213,13 @@ for step = 2:Nt
     at_hmin = false;
   end
   h = tdir * absh;
+
+  % Stretch the step if within 10% of tfinal-t.
+  if 1.1*absh >= abs(tfinal - t)
+    h = tfinal - t;
+    absh = abs(h);
+    done = true;
+  end
 
   if (absh ~= abshlast) || (k ~= klast)
     difRU = cumprod((kI - 1 - kJ*(absh/abshlast)) ./ kI) * difU;
@@ -150,10 +234,16 @@ for step = 2:Nt
   nofailed = true;                      % no failed attempts
   fex = fnlin(t,y);                     % the nonlinear part is fixed in the iteration
   while true                            % Evaluate the formula.
+
     % Compute the constant terms in the equation for ynew.
     psi = dif(:,K) * (G(K) * invGa(k));
+
     % Predict a solution at t+h.
     tnew = t + h;
+    if done
+      tnew = tfinal;   % Hit end point exactly.
+    end
+    h = tnew - t;      % Purify h.
     pred = y + sum(dif(:,K),2);
     ynew = pred;
 
@@ -166,7 +256,7 @@ for step = 2:Nt
 
     rhs = Mt*(ynew-psi) + hinvGak*fex;
     if vectorJ
-      ynew2 = rhs ./ (Mt - hinvGak*J);
+      ynew2 = rhs ./ (Mtdiag - hinvGak*J);
     else
       ynew2 = pencil(rhs,hinvGak);
     end
@@ -208,7 +298,7 @@ for step = 2:Nt
       fs = dfexdy*ys + (dJdp*ynew + sensval);
       rhss = Mt*(ynews-psis) + hinvGak*fs;
       if vectorJ
-        ynews2 = rhss ./ (Mt - hinvGak*J);
+        ynews2 = rhss ./ (Mtdiag - hinvGak*J);
       else
         ynews2 = pencil(rhss,hinvGak);
       end
@@ -231,8 +321,10 @@ for step = 2:Nt
     if fail
       if absh <= hmin
         warning(message('MATLAB:ode15s:IntegrationTolNotMet', sprintf( '%e', t ), sprintf( '%e', hmin )));
-        tout(step:end) = [];
-        yout(step:end,:) = [];
+        solver_output = odefinalize_ez(sol,nout,tout,yout,kvec,dif3d,difs4d,idxNonNegative,ysout);
+        if nargout > 0
+          varargout = solver_output;
+        end
         return;
       end
 
@@ -276,6 +368,95 @@ for step = 2:Nt
   for j = k:-1:1
     dif(:,j) = dif(:,j) + dif(:,j+1);
   end
+
+  if output_sol
+    nout = nout + 1;
+    if nout > length(tout)
+      tout = [tout, zeros(1,chunk)];  % requires chunk >= refine
+      yout = [yout, zeros(neq,chunk)];
+      kvec = [kvec, zeros(1,chunk)];
+      dif3d = cat(3,dif3d, zeros(neq,maxk+2,chunk));
+      if FSA
+        ysout = cat(3,ysout, zeros(neqsout,ninst,chunk));
+        difs4d = cat(4,difs4d, zeros(neqsout,ninst,maxk+2,chunk));
+      end
+    end
+    tout(nout) = tnew;
+    yout(:,nout) = ynew;
+    kvec(nout) = k;
+    dif3d(:,:,nout) = dif;
+    if FSA
+      ysout(:,:,nout) = ynews;
+      difs4d(:,:,:,nout) = difs;
+    end
+  end
+
+  if output_ty || haveOutputFcn
+    switch outputAt
+     case 'SolverSteps'        % computed points, no refinement
+      nout_new = 1;
+      tout_new = tnew;
+      yout_new = ynew;
+      if FSA
+        ysout_new = ynews;
+      end
+     case 'RefinedSteps'       % computed points, with refinement
+      tref = t + (tnew-t)*S;
+      nout_new = refine;
+      tout_new = [tref, tnew];
+      yout_new = [ntrp15s(tref,[],[],tnew,ynew,h,dif,k,idxNonNegative), ynew];
+      if FSA
+        ysout_new = cat(3,ntrp15svec(tref,[],[],tnew,ynews,h,difs,k,idxNonNegative), ynews);
+      end
+     case 'RequestedPoints'    % output only at tspan points
+      nout_new =  0;
+      tout_new = [];
+      yout_new = [];
+      ysout_new = [];
+      while next <= ntspan
+        if tdir * (tnew - tspan(next)) < 0
+          break;
+        end
+        nout_new = nout_new + 1;
+        tout_new = [tout_new, tspan(next)];
+        if tspan(next) == tnew
+          yout_new = [yout_new, ynew];
+          if FSA
+            ysout_new = cat(3, ysout_new, ynews);
+          end
+        else
+          yout_new = [yout_new, ntrp15s(tspan(next),[],[],tnew,ynew,h,dif,k,...
+              idxNonNegative)];
+            if FSA
+              ysout_new = cat(3, ysout_new, ntrp15svec(tspan(next),[],[],tnew,ynews,h,difs,k,...
+                  idxNonNegative));
+            end
+        end
+        next = next + 1;
+      end
+    end
+
+    if nout_new > 0
+      if output_ty
+        oldnout = nout;
+        nout = nout + nout_new;
+        if nout > length(tout)
+          tout = [tout, zeros(1,chunk)];  % requires chunk >= refine
+          yout = [yout, zeros(neq,chunk)];
+          if FSA
+            ysout = cat(3, ysout, zeros(neqsout,ninst,chunk));
+          end
+        end
+        idx = oldnout+1:nout;
+        tout(idx) = tout_new;
+        yout(:,idx) = yout_new;
+        if FSA
+          ysout(:,:,idx) = ysout_new;
+        end
+      end
+    end
+  end
+
 
   klast = k;
   abshlast = absh;
@@ -342,6 +523,36 @@ for step = 2:Nt
       normys = normynews;
     end
   end
-  tout(step) = t;
-  yout(:,step) = y;
+end
+
+solver_output = odefinalize_ez(sol,nout,tout,yout,kvec,dif3d,difs4d,idxNonNegative,ysout);
+if nargout > 0
+  varargout = solver_output;
+end
+end
+
+
+function solver_output = odefinalize_ez(sol,nout,tout,yout,kvec,dif3d,difs4d,idxNonNegative,ysout)
+  solver_output = {};
+  if (nout > 0) % produce output
+    if isempty(sol) % output [t,y,...]
+      solver_output{1} = tout(1:nout).';
+      solver_output{2} = yout(:,1:nout);
+      if ~isempty(ysout)
+        solver_output{3} = permute(ysout(:,:,1:nout),[3,1,2]);
+      end
+    else % output sol
+      % Add remaining fields
+      sol.x = tout(1:nout);
+      sol.y = yout(:,1:nout);
+      sol.idata.kvec = kvec(1:nout);
+      maxkvec = max(sol.idata.kvec);
+      sol.idata.dif3d = dif3d(:,1:maxkvec+2,1:nout);
+      if ~isempty(difs4d)
+        sol.idata.difs4d = difs4d(:,:,1:maxkvec+2,1:nout);
+      end
+      sol.idata.idxNonNegative = idxNonNegative;
+      solver_output{1} = sol;
+    end
+  end
 end
