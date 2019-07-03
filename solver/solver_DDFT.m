@@ -1,21 +1,51 @@
-function solver_DDFT()
+function [t,y,params] = solver_DDFT(tspan,y0,params)
 addpath('../../CHACR/odesolver')
 %in order to be consistent with formk, the first dimension is x and the second dimension is y
-N = [128,128]*2;
-L = [5,5];
-dx = L./N;
-n = prod(N);
-n0 = 0.1;
-sigma = 0.01;
-rng(1);
-y0 = n0 + sigma*randn(N);
-y0 = y0(:);
-[k2,k] = formk(N,L);
-k0 = 10;
-alpha = 2;
-C = exp(-(sqrt(k2)-k0).^2/(2*alpha^2))*0.95;
-tspan = linspace(0,4,100);
-% tspan = [0,2];
+if ~isfield(params,'dx') && isfield(params,'N') && isfield(params,'L')
+  params.dx = params.L ./ params.N;
+elseif ~isfield(params,'N') && isfield(params,'dx') && isfield(params,'L')
+  params.N = params.L ./ params.dx;
+elseif ~isfield(params,'L') && isfield(params,'N') && isfield(params,'dx')
+  params.L = params.N .* params.dx;
+elseif ~all(isfield(params,{'dx','N','L'}))
+  params.N = [128,128];
+  params.L = [5,5];
+  params.dx = params.L./params.N;
+end
+n = prod(params.N);
+N = params.N;
+L = params.L;
+dx = params.dx;
+if ~isfield(params,'C')
+  %default
+  [k2,k] = formk(N,L);
+  k0 = 10;
+  alpha = 2;
+  params.C = exp(-(sqrt(k2)-k0).^2/(2*alpha^2))*0.95;
+end
+if ~isfield(params,'mu')
+  params.mu.func = @(x,coeff) x - x.^2/2 + x.^3/3; %@(x) log(1+x)
+  params.mu.grad = @(x,coeff) 1 - x + x.^2;
+  params.mu.params = [];
+end
+% mu.func = @(x,coeff) log((1+x)./(1-x))/2;
+% mu.grad = @(x,coeff) 1./(1-x.^2);
+% mu.params = [];
+if isempty(y0) || isscalar(y0)
+  %initialization
+  if isempty(y0)
+    n0 = 0.1;
+  else
+    n0 = y0;
+  end
+  sigma = 0.01;
+  rng(1);
+  y0 = n0 + sigma*randn(N);
+  y0 = y0(:);
+end
+if isempty(tspan)
+  tspan = linspace(0,4,100);
+end
 t0 = tspan(1);
 
 %Finite differencing operator in real space
@@ -38,24 +68,26 @@ end
 Lconv = [zeros(1,3); 1,-2,1; zeros(1,3)]/dx(2)^2 + [zeros(3,1), [1;-2;1], zeros(3,1)]/dx(1)^2;
 LK = psf2otf(Lconv,N);
 
-yp0 = RHS(t0,y0,N,dx,C);
-options = odeset('InitialSlope',yp0,'Jacobian',@jacobian);
+yp0 = RHS(t0,y0,params);
+options = odeset('InitialSlope',yp0,'Jacobian',@(t,y) jacobian(t,y,params));
 moreoptions = moreodeset('skipInit',true,'Krylov',true, ...
-'pencil',@(xi,t,y,hinvGak,info) pencil(N,dx,C,xi,t,y,hinvGak,info), ...
+'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,y,hinvGak,info), ...
 'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak), ...
-'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,N,C,x,L,U,hinvGak),...
-'jacMult',@(xi,t,y,info) jacobian_mult(N,dx,C,xi,t,y,info),...
+'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak),...
+'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,y,info),...
 'gmrestol',1e-3);
 
-[t,y] = myode15s(@(t,y) RHS(t,y,N,dx,C),tspan,y0,options,moreoptions);
+[t,y] = myode15s(@(t,y) RHS(t,y,params),tspan,y0,options,moreoptions);
 
 end
 
-function dy = RHS(t,y,N,dx,C)
+function dy = RHS(t,y,params)
   %C should be 2D, same below
+  N = params.N;
+  dx = params.dx;
+  C = params.C;
   y = reshape(y,N);
-%   mu = log(1+y);
-  mu = y - y.^2/2 + y.^3/3;
+  mu = customizeFunGrad(params,'mu','fun',y);
   mu = mu - ifftn(C .* fftn(y));
   dy = 0;
   for i = 1:length(N)
@@ -64,10 +96,9 @@ function dy = RHS(t,y,N,dx,C)
   dy = dy(:);
 end
 
-function dfdy = jacobian(t,y)
+function dfdy = jacobian(t,y,params)
   %this only computes the nonlinear part, as an input to KrylovDecomp
-%   dfdy = 1./(1+y);
-  dfdy = 1 - y + y.^2;
+  dfdy = customizeFunGrad(params,'mu','grad',y);
 end
 
 function Pargs = KrylovDecomp(L,dfdy,hinvGak)
@@ -79,23 +110,27 @@ function Pargs = KrylovDecomp(L,dfdy,hinvGak)
   Pargs = {L,U};
 end
 
-function yy = KrylovPrecon(LK,N,C,x,L,U,hinvGak)
+function yy = KrylovPrecon(LK,params,x,L,U,hinvGak)
   %LK is the Fourier transform of the finite difference Laplacian operator
+  N = params.N;
+  C = params.C;
   x = reshape(x,N);
   yy = ifft( fft(x) ./ (1 + hinvGak*LK.*C) );
   yy = yy(:);
   yy = U \ (L \ yy);
 end
 
-function yy = jacobian_mult(N,dx,C,xi,t,y,info)
+function yy = jacobian_mult(params,xi,t,y,info)
   if isequal(info,'force')
-    yy = jacobian_mult(N,dx,C,xi,t,y,[]);
-    yy = jacobian_mult(N,dx,C,xi,t,y,yy);
+    yy = jacobian_mult(params,xi,t,y,[]);
+    yy = jacobian_mult(params,xi,t,y,yy);
   elseif isempty(info)
-%     yy = 1./(1+y);
-    yy = 1 - y + y.^2;
-    yy = reshape(yy,N);
+    yy = customizeFunGrad(params,'mu','grad',y);
+    yy = reshape(yy,params.N);
   else
+    N = params.N;
+    dx = params.dx;
+    C = params.C;
     xi = reshape(xi,N);
     dfdy = info;
     mu = dfdy .* xi;
@@ -108,9 +143,36 @@ function yy = jacobian_mult(N,dx,C,xi,t,y,info)
   end
 end
 
-function yy = pencil(N,dx,C,xi,t,y,hinvGak,info)
-  yy = jacobian_mult(N,dx,C,xi,t,y,info);
+function yy = pencil(params,xi,t,y,hinvGak,info)
+  yy = jacobian_mult(params,xi,t,y,info);
   if ~isempty(info)
     yy = xi - hinvGak*yy;
+  end
+end
+
+function varargout = customizeFunGrad(customize,name,request,varargin)
+  %allow func to output both fun and grad eval
+  %request can be 'fun','grad',or 'fungrad', and the output will be the requested evaluation in the corresponding order.
+  %evaluate fun and grad from func function at the same time if grad doesn't exist
+  funstr = customize.(name);
+  params = funstr.params;
+  fungrad = (~isfield(funstr,'grad'));
+  if fungrad
+    [fun,grad] = funstr.func(varargin{:},params);
+  else
+    if isequal(request,'fun') || isequal(request,'fungrad')
+      fun = funstr.func(varargin{:},params);
+    end
+    if isequal(request,'grad') || isequal(request,'fungrad')
+      grad = funstr.grad(varargin{:},params);
+    end
+  end
+  switch request
+  case 'fun'
+    varargout = {fun};
+  case 'grad'
+    varargout = {grad};
+  case 'fungrad'
+    varargout = {fun,grad};
   end
 end
