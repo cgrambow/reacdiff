@@ -141,6 +141,8 @@ if (nargin == 0) && (nargout == 0)
   fprintf('           interpFcn: [ {[]} | function handle ]\n');
   fprintf('             jacMult: [ {[]} | function handle ]\n');
   fprintf('              Krylov: [ {false} | true ]\n');
+  fprintf('        KrylovDecomp: [ {[]} | function handle ]\n');
+  fprintf('        KrylovPrecon: [ {[]} | function handle ]\n');
   fprintf('              linear: [ {false} | true ]\n');
   fprintf('          linearMult: [ {[]} | function handle ]\n');
   fprintf('               maxit: [ {4 ~blockIter, 10 blockIter} | integer ]\n');
@@ -173,6 +175,8 @@ Names = [
     'interpFcn            '
     'jacMult              '
     'Krylov               '
+    'KrylovDecomp         '
+    'KrylovPrecon         '
     'linear               '
     'linearMult           '
     'maxit                '

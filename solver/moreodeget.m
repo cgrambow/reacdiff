@@ -60,6 +60,8 @@ Names = [
     'interpFcn            '
     'jacMult              '
     'Krylov               '
+    'KrylovDecomp         '
+    'KrylovPrecon         '
     'linear               '
     'linearMult           '
     'maxit                '
