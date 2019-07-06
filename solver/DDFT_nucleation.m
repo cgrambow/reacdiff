@@ -30,3 +30,9 @@ tspan2 = linspace(0,0.4,100);
 [t2,y2] = solver_DDFT(tspan2,y0,params);
 
 figure; visualize([],[],[],y2(1:10:end,:),'c',false,'ImageSize',N);
+
+ind = 1:5:100;
+tdata = t2(ind);
+ydata = y2(ind,:);
+
+x_opt = IP_DDFT(tdata,ydata,params);
