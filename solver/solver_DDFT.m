@@ -1,4 +1,16 @@
-function [t,y,params] = solver_DDFT(tspan,y0,params)
+function varargout = solver_DDFT(tspan,y0,params,meta,mode,varargin)
+%this provides solution to both forward and backward evaluation
+%set mode = 'forward' (default) to perform model evaluation, in this mode, we accept two varargin, varargin{1} is sol, when true (false by default), output sol structure (varargin = {tout,sol,params},, when false, varargin = {tout,y,params}. varargin{2} is FSA, when true (false by default), also computes FSA and varargin{4} = ys.
+%set mode = 'adjoint' to perform ASA analysis. varargin{1} = error, varargin{2] = discrete, tspan and y0 must be tdata and sol (solution history). varargout = {grad}
+ASA = (nargin > 4) && isequal(mode,'adjoint');
+if ASA
+  error = varargin{1};
+  discrete = varargin{2};
+else
+  sol = ~isempty(varargin) && varargin{1};
+  FSA = length(varargin)>1 && varargin{2};
+end
+
 addpath('../../CHACR/odesolver')
 %in order to be consistent with formk, the first dimension is x and the second dimension is y
 if ~isfield(params,'dx') && isfield(params,'N') && isfield(params,'L')
@@ -31,22 +43,6 @@ end
 % mu.func = @(x,coeff) log((1+x)./(1-x))/2;
 % mu.grad = @(x,coeff) 1./(1-x.^2);
 % mu.params = [];
-if isempty(y0) || isscalar(y0)
-  %initialization
-  if isempty(y0)
-    n0 = 0.1;
-  else
-    n0 = y0;
-  end
-  sigma = 0.01;
-  rng(1);
-  y0 = n0 + sigma*randn(N);
-  y0 = y0(:);
-end
-if isempty(tspan)
-  tspan = linspace(0,4,100);
-end
-t0 = tspan(1);
 
 %Finite differencing operator in real space
 for i = 1:2
@@ -68,16 +64,104 @@ end
 Lconv = [zeros(1,3); 1,-2,1; zeros(1,3)]/dx(2)^2 + [zeros(3,1), [1;-2;1], zeros(3,1)]/dx(1)^2;
 LK = psf2otf(Lconv,N);
 
-yp0 = RHS(t0,y0,params);
-options = odeset('InitialSlope',yp0,'Jacobian',@(t,y) jacobian(t,y,params));
+%the Jacobian and mass matrix of the system is Hermitian, so the treatment of pencil is the same for forward and ASA eval
 moreoptions = moreodeset('skipInit',true,'Krylov',true, ...
-'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,y,hinvGak,info), ...
-'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak), ...
-'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak),...
-'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,y,info),...
 'gmrestol',1e-3);
 
-[t,y] = myode15s(@(t,y) RHS(t,y,params),tspan,y0,options,moreoptions);
+if ~ASA
+  if isempty(y0) || isscalar(y0)
+    %initialization
+    if isempty(y0)
+      n0 = 0.1;
+    else
+      n0 = y0;
+    end
+    sigma = 0.01;
+    rng(1);
+    y0 = n0 + sigma*randn(N);
+    y0 = y0(:);
+  end
+  if isempty(tspan)
+    tspan = linspace(0,4,100);
+  end
+  t0 = tspan(1);
+  yp0 = RHS(t0,y0,params);
+  options = odeset('InitialSlope',yp0,'Jacobian',@(t,y) jacobian(t,y,params));
+  moreoptions = moreodeset(moreoptions, ...
+  'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,y,info), ...
+  'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,y,hinvGak,info), ...
+  'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak), ...
+  'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak));
+  odeFcn = @(t,y) RHS(t,y,params);
+
+  if FSA
+    moreoptions = moreodeset(moreoptions, ...
+    'FSA', true, ...
+    'sensFcn', @(t,y) sensFcn(t,y,meta,params), ...
+    'ys0', zeros(length(y0),meta.extdata.numParams), ...
+    'ysp0', sensFcn(tspan(1),y0,params,meta));
+  end
+
+  if sol
+    y = myode15s(odeFcn,tspan,y0,options,moreoptions);
+    tout = y.x;
+    ys = [];
+  else
+    [tout,y,ys] = myode15s(odeFcn,tspan,y0,options,moreoptions);
+  end
+  varargout = {tout,y,params,ys};
+else
+  addpath('../../CHACR/GIP')
+  tdata = tspan;
+  sol = y0;
+  ASAQuadNp = 1;
+
+  options = odeset('Jacobian',@(t,y) jacobian(t,sol,params), ...
+  'mass', -speye(prod(params.N)),'MassSingular','yes','MStateDependence','none');
+  moreoptions = moreodeset(moreoptions, ...
+  'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,sol,info), ...
+  'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,sol,hinvGak,info,true), ...
+  'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak,true), ...
+  'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak,true),...
+  'interpFcn',@(flag,info,tnew,ynew,h,dif,k,idxNonNegative) ASA_gradient(flag,info,tnew,ynew,h,dif,k,idxNonNegative,sol,@sensFcn,{params},meta,ASAQuadNp));
+
+  if ~discrete
+    tspan = [tdata(end),tdata(1)];
+    F0 = error(end,:)';
+    [y0,yp0] = ASAinit(F0,discrete,params,tspan(1),sol);
+    options = odeset(options,'InitialSlope',yp0);
+    moreoptions.linearMult = @(xi,t,info) ASA_mult(t,xi,sol,info,params,tdata,error);
+    odeFcn = @(t,y) ASA_eqn(t,y,sol,params,tdata,error);
+    grad = myode15s(odeFcn,tspan,y0,options,moreoptions);
+  else
+    y_final = 0;
+    yp_final = 0;
+    moreoptions.linearMult = @(xi,t,info) ASA_mult(t,xi,sol,info,params);
+    odeFcn = @(t,y) ASA_eqn(t,y,sol,params);
+    %initialize at each time step
+    y0_list = zeros(n,length(tdata)-1);
+    yp0_list = y0_list;
+    for ind = 2:length(tdata)
+      t0 = tdata(ind);
+      F0 = error(end,:)';
+      [y0_list(:,ind-1),yp0_list(:,ind-1)] = ASAinit(F0,discrete,params,t0,sol);
+    end
+    %serial
+    grad = zeros(1,meta.extdata.numParams);
+    for ind = (length(tdata)-1):-1:1
+      tspan = [tdata(ind+1),tdata(ind)];
+      y0 = y0_list(:,ind)+y_final;
+      yp0 = yp0_list(:,ind)+yp_final;
+      options = odeset(options,'InitialSlope',yp0);
+      [grad_new,y_final,yp_final] = myode15s(odeFcn,tspan,y0,options,moreoptions);
+      grad = grad + grad_new;
+      if isnan(y_final)
+        break;
+      end
+    end
+  end
+  varargout = {grad};
+end
 
 end
 
@@ -97,25 +181,39 @@ function dy = RHS(t,y,params)
 end
 
 function dfdy = jacobian(t,y,params)
+  %accommondate its usage through ASA when y is a struct
+  if isstruct(y)
+    y = sol_interp(y,t);
+  end
   %this only computes the nonlinear part, as an input to KrylovDecomp
   dfdy = customizeFunGrad(params,'mu','grad',y);
 end
 
-function Pargs = KrylovDecomp(L,dfdy,hinvGak)
+function Pargs = KrylovDecomp(L,dfdy,hinvGak,adjoint)
   %here dfdy comes from Jacobian
   %L is the finite-difference Laplacian operator
+  if nargin>3 && adjoint
+    msign = -1;
+  else
+    msign = 1;
+  end
   n = length(L);
-  J = speye(n) - hinvGak*L.*sparse(1:n,1:n,dfdy);
+  J = msign*speye(n) - hinvGak*L.*sparse(1:n,1:n,dfdy);
   [L,U] = ilu(J);
   Pargs = {L,U};
 end
 
-function yy = KrylovPrecon(LK,params,x,L,U,hinvGak)
+function yy = KrylovPrecon(LK,params,x,L,U,hinvGak,adjoint)
   %LK is the Fourier transform of the finite difference Laplacian operator
+  if nargin>6 && adjoint
+    msign = -1;
+  else
+    msign = 1;
+  end
   N = params.N;
   C = params.C;
   x = reshape(x,N);
-  yy = ifft( fft(x) ./ (1 + hinvGak*LK.*C) );
+  yy = ifft( fft(x) ./ (msign + hinvGak*LK.*C) );
   yy = yy(:);
   yy = U \ (L \ yy);
 end
@@ -125,6 +223,9 @@ function yy = jacobian_mult(params,xi,t,y,info)
     yy = jacobian_mult(params,xi,t,y,[]);
     yy = jacobian_mult(params,xi,t,y,yy);
   elseif isempty(info)
+    if isstruct(y)
+      y = sol_interp(y,t);
+    end
     yy = customizeFunGrad(params,'mu','grad',y);
     yy = reshape(yy,params.N);
   else
@@ -143,10 +244,73 @@ function yy = jacobian_mult(params,xi,t,y,info)
   end
 end
 
-function yy = pencil(params,xi,t,y,hinvGak,info)
+function yy = ASA_mult(t,xi,sol,info,params,varargin)
+  if isempty(info)
+    yy = jacobian_mult(params,[],t,sol,[]);
+  else
+    yy = jacobian_mult(params,xi,[],[],info);
+    if ~isempty(varargin)
+      tdata = varargin{1};
+      error = varargin{2};
+      [interval,alpha] = interval_counter(tdata,t,length(tdata)-1,2);
+      source = (error(interval,:)*(1-alpha) + error(interval+1,:)*alpha)';
+      yy = yy + source;
+    end
+  end
+end
+
+function dy = ASA_eqn(t,y,sol,params,varargin)
+  %wrapper function for odeFcn (not really needed, mostly just a placeholder, except for daeic)
+  info = ASA_mult(t,y,sol,[],params);
+  dy = ASA_mult(t,y,sol,info,params,varargin{:});
+end
+
+function yy = pencil(params,xi,t,y,hinvGak,info,adjoint)
+  if nargin>6 && adjoint
+    msign = -1;
+  else
+    msign = 1;
+  end
   yy = jacobian_mult(params,xi,t,y,info);
   if ~isempty(info)
-    yy = xi - hinvGak*yy;
+    yy = msign*xi - hinvGak*yy;
+  end
+end
+
+function dy = sensFcn(t,y,meta,params)
+  N = params.N;
+  dx = params.dx;
+  y = reshape(y,N);
+  names = fieldnames(meta);
+  numParams = meta.extdata.numParams;
+  dy = zeros(numel(y),numParams);
+
+  for i = 1:numel(names)
+    name = names{i};
+    if isequal(name,'extdata')
+      continue
+    end
+    paramsIndex = meta.(name).index;
+    switch name
+    case 'mu'
+      mu = customizeSensEval(params,name,y);
+    case 'C'
+      mu = -params.Csens(y);
+    end
+    dyi = 0;
+    for i = 1:length(N)
+      dyi = dyi + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
+    end
+    dy(:,paramsIndex) = reshape(dyi,[],numel(paramsIndex));
+  end
+end
+
+function [y0,yp0] = ASAinit(F0,discrete,params,t0,sol)
+  y0 = zeros(size(F0));
+  yp0 = F0;
+  if discrete
+    y0 = yp0;
+    yp0 = jacobian_mult(params,y0,t0,sol,'force');
   end
 end
 
