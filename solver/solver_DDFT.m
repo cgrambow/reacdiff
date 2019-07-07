@@ -123,7 +123,7 @@ else
   'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,sol,hinvGak,info,true), ...
   'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak,true), ...
   'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak,true),...
-  'interpFcn',@(flag,info,tnew,ynew,h,dif,k,idxNonNegative) ASA_gradient(flag,info,tnew,ynew,h,dif,k,idxNonNegative,sol,@sensFcn,{params},meta,ASAQuadNp));
+  'interpFcn',@(flag,info,tnew,ynew,h,dif,k,idxNonNegative) ASA_gradient(flag,info,tnew,ynew,h,dif,k,idxNonNegative,sol,@sensFcn_ASA,{params},meta,ASAQuadNp,true));
 
   if ~discrete
     tspan = [tdata(end),tdata(1)];
@@ -302,6 +302,41 @@ function dy = sensFcn(t,y,meta,params)
       dyi = dyi + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
     end
     dy(:,paramsIndex) = reshape(dyi,[],numel(paramsIndex));
+  end
+end
+
+function dy = sensFcn_ASA(t,y,omega,meta,params)
+  N = params.N;
+  dx = params.dx;
+  y = reshape(y,N);
+  names = fieldnames(meta);
+  numParams = meta.extdata.numParams;
+  dy = zeros(1,numParams);
+
+  for i = 1:numel(names)
+    name = names{i};
+    if isequal(name,'extdata')
+      continue
+    end
+    paramsIndex = meta.(name).index;
+    switch name
+    case 'mu'
+      mu = customizeSensEval(params,name,y);
+      dyi = 0;
+      for j = 1:length(N)
+        dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
+      end
+      dy(paramsIndex) = sum(omega.*dyi(:));
+    case 'C'
+      for p = 1:length(paramsIndex)
+        mu = -params.Csens(y,p);
+        dyi = 0;
+        for j = 1:length(N)
+          dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
+        end
+        dy(paramsIndex(p)) = sum(omega.*dyi(:));
+      end
+    end
   end
 end
 

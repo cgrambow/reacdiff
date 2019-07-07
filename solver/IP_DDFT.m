@@ -7,7 +7,7 @@ addpath('../../CHACR/GIP')
 NC = floor((prod(kernelSize)+1)/2);
 meta.C.index = 1:NC;
 meta.C.exp = false;
-params.Csens = @(y) Csens(y,Cspace,kernelSize);
+params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
 x_guess = zeros(1,NC);
 
 tspan = 100;
@@ -129,6 +129,57 @@ function dy = Csens(y,Cspace,kernelSize)
       else
         dy(:,:,i) = circshift(y,ind) + circshift(y,-ind);
       end
+    end
+  end
+end
+
+function dy = Csens_ASA(y,i,Cspace,kernelSize)
+  %another version of Csens, output only the sensitivity with respect to the ith parameter
+  %Csens takes up a lot of memory!! Csens is now a function handle for multiplying the sensitivity of C with a vector y. (dy = dC * y) Note that y should in the image format and in real space.
+  %the returned dy has the dimension of size(y,1)*size(y,2)*number of parameters
+  %for example, if real space representation is used, use circshift, in sensFcn,
+  %if k space representation is used, for C(k), the sensitivity of -mu is y(k)exp(ikx)+y(-k)exp(-ikx)
+  %since y is real, this is equal to 2Re(y(k)exp(ikx))
+  %again, note that kernelSize must be odd
+  n = floor((prod(kernelSize)+1)/2);
+  kernelCenter = ceil(kernelSize/2);
+  if isequal(Cspace,'k')
+    imageSize = size(y);
+    numPixel = prod(imageSize);
+    y = fftn(y);
+    [p1,p2] = ndgrid(0:(imageSize(1)-1),0:(imageSize(2)-1));
+    p1 = p1/imageSize(1);
+    p2=  p2/imageSize(2);
+  end
+  [ind(1),ind(2)] = ind2sub(kernelSize,i);
+  ind = ind - kernelCenter;
+  switch Cspace
+  case 'k'
+    if all(ind==0)
+      dy = y(1,1)/numPixel;
+    else
+      if ind(1)>0
+        ind(2) = imageSize(2)+ind(2);
+      else
+        ind = -ind;
+      end
+      %manually implement ifft to be faster see doc for ifftn
+      dy = 2*real(y(1+ind(1),1+ind(2)) * exp(2*pi*1i*(p1*ind(1)+p2*ind(2)))/numPixel);
+    end
+    % %the following code is another version consistent with the definition of C in assign
+    % C = zeros(1,n);
+    % C(i) = 1;
+    % C = [C,flip(C(1:end-1))];
+    % C = reshape(C, kernelSize);
+    % padSize = imageSize - kernelSize;
+    % C       = padarray(C, padSize, 'post');
+    % C       = circshift(C,-floor(kernelSize/2));
+    % dy = ifftn(C .* y);
+  case 'real'
+    if all(ind==0)
+      dy = y;
+    else
+      dy = circshift(y,ind) + circshift(y,-ind);
     end
   end
 end
