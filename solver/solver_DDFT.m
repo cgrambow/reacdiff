@@ -66,7 +66,7 @@ LK = psf2otf(Lconv,N);
 
 %the Jacobian and mass matrix of the system is Hermitian, so the treatment of pencil is the same for forward and ASA eval
 moreoptions = moreodeset('skipInit',true,'Krylov',true, ...
-'gmrestol',1e-3);
+'gmrestol',1e-4,'restart',10);
 
 if ~ASA
   if isempty(y0) || isscalar(y0)
