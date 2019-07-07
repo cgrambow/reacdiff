@@ -1,4 +1,4 @@
-%parameter search
+tic;
 L = [5,5];
 N = [256,256];
 n = prod(N);
@@ -34,5 +34,8 @@ figure; visualize([],[],[],y2(1:10:end,:),'c',false,'ImageSize',N);
 ind = 1:5:100;
 tdata = t2(ind);
 ydata = y2(ind,:);
+toc
 
-x_opt = IP_DDFT(tdata,ydata,params);
+% x_opt = IP_DDFT(tdata,ydata,params,[21,21],'k'); %this stagnates at iter 17 after 63 func counts
+
+x_opt = IP_DDFT(tdata,ydata,params,[61,61],'real');
