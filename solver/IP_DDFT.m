@@ -1,14 +1,12 @@
-function x_opt = IP_DDFT(tdata,ydata,params)
+function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace)
 addpath('../../CHACR/GIP')
 
 % params.N = [256,256];
 % params.L = [5,5];
 % params.dx = params.L ./ params.N;
-kernelSize = [21,21];
 NC = floor((prod(kernelSize)+1)/2);
 meta.C.index = 1:NC;
 meta.C.exp = false;
-Cspace = 'k';
 params.Csens = @(y) Csens(y,Cspace,kernelSize);
 x_guess = zeros(1,NC);
 
@@ -62,7 +60,7 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
       C       = circshift(C,-floor(kernelSize/2));
       params.C = C;
     case 'real'
-      params.C = psf2otf(C);
+      params.C = psf2otf(C, params.N);
     end
   end
 end
@@ -94,6 +92,7 @@ function dy = Csens(y,Cspace,kernelSize)
   dy = zeros([size(y),n]);
   if isequal(Cspace,'k')
     imageSize = size(y);
+    numPixel = prod(imageSize);
     y = fftn(y);
     [p1,p2] = ndgrid(0:(imageSize(1)-1),0:(imageSize(2)-1));
     p1 = p1/imageSize(1);
@@ -105,16 +104,25 @@ function dy = Csens(y,Cspace,kernelSize)
     switch Cspace
     case 'k'
       if all(ind==0)
-        dy(:,:,i) = y(1,1);
+        dy(:,:,i) = y(1,1)/numPixel;
       else
         if ind(1)>0
-          ind(2) = n+1+ind(2);
+          ind(2) = imageSize(2)+ind(2);
         else
           ind = -ind;
         end
         %manually implement ifft to be faster see doc for ifftn
-        dy(:,:,i) = 2*real(y(1+ind(1),1+ind(2)) * exp(2*pi*1i*(p1*ind(1)+p2*ind(2)))/prod(imageSize));
+        dy(:,:,i) = 2*real(y(1+ind(1),1+ind(2)) * exp(2*pi*1i*(p1*ind(1)+p2*ind(2)))/numPixel);
       end
+      % %the following code is another version consistent with the definition of C in assign
+      % C = zeros(1,n);
+      % C(i) = 1;
+      % C = [C,flip(C(1:end-1))];
+      % C = reshape(C, kernelSize);
+      % padSize = imageSize - kernelSize;
+      % C       = padarray(C, padSize, 'post');
+      % C       = circshift(C,-floor(kernelSize/2));
+      % dy(:,:,i) = ifftn(C .* y);
     case 'real'
       if all(ind==0)
         dy(:,:,i) = y;

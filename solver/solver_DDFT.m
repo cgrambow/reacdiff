@@ -213,7 +213,7 @@ function yy = KrylovPrecon(LK,params,x,L,U,hinvGak,adjoint)
   N = params.N;
   C = params.C;
   x = reshape(x,N);
-  yy = ifft( fft(x) ./ (msign + hinvGak*LK.*C) );
+  yy = ifftn( fftn(x) ./ (msign + hinvGak*LK.*C) );
   yy = yy(:);
   yy = U \ (L \ yy);
 end
