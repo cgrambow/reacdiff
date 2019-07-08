@@ -1,19 +1,35 @@
-function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace)
+function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options)
 addpath('../../CHACR/GIP')
 
 % params.N = [256,256];
 % params.L = [5,5];
 % params.dx = params.L ./ params.N;
-NC = floor((prod(kernelSize)+1)/2);
+if isequal(Cspace,'isotropic')
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2);
+%   bound = [0, 2*pi*params.N(1)/params.L(1)/2]; %assuming at least 5 points across each pattern
+  bound = [0,max(k(:))];
+  expleg = custom_Legendre(1,bound);
+  params.Cfunc.func = @(x) expleg.func(k,x);
+  params.Cfunc.sens = @(x) expleg.sens(k,x);
+  NC = kernelSize;
+else
+  NC = floor((prod(kernelSize)+1)/2);
+  params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
+end
+
 meta.C.index = 1:NC;
 meta.C.exp = false;
-params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
 x_guess = zeros(1,NC);
 
 tspan = 100;
-loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx));
-lossHess = @(dy,~,~) MSE([],[],prod(params.dx),dy);
-options = optimoptions('fminunc','SpecifyObjectiveGradient',true,'Display','iter-detailed');
+loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);
+lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx)*100,dy);
+if nargin > 5 && ~isempty(options)
+  options = optimoptions(options,'SpecifyObjectiveGradient',true,'Display','iter-detailed');
+else
+  options = optimoptions('fminunc','SpecifyObjectiveGradient',true,'Display','iter-detailed');
+end
 
 x_opt = fminunc(@(x) IP(tdata,ydata,x,meta,params, ...
 @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
@@ -39,34 +55,45 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
     %but it must be converted to be centered at 1,1 in the k-space representation used in DDFT solver
     %consider other extensions:
     %1. Reduce to representing 1D C(k) if it's axisymmetric
-    if any(mod(kernelSize,2)==0)
-      error('kernel size must be odd');
-    end
-    n = length(xparam);
-    if n ~= floor((prod(kernelSize)+1)/2)
-      error('kernel size incompatible with C input');
-    end
-    %note that n is odd
-    C = xparam(:);
-    %symmetry condition
-    C = [C; flip(C(1:end-1))];
-    C = reshape(C, kernelSize);
-    switch Cspace
-    case 'k'
-      % Circularly shift so that the "center" of the OTF is at the
-      % (1,1) element of the array. (from psf2otf)
-      padSize = params.N - kernelSize;
-      C       = padarray(C, padSize, 'post');
-      C       = circshift(C,-floor(kernelSize/2));
-      params.C = C;
-    case 'real'
-      params.C = psf2otf(C, params.N);
+    if isequal(Cspace,'isotropic')
+      %C(k) can be represented by a 1D function
+      params.C = params.Cfunc.func(xparam);
+      params.Csensval = params.Cfunc.sens(xparam);
+    else
+      if any(mod(kernelSize,2)==0)
+        error('kernel size must be odd');
+      end
+      n = length(xparam);
+      if n ~= floor((prod(kernelSize)+1)/2)
+        error('kernel size incompatible with C input');
+      end
+      %note that n is odd
+      C = xparam(:);
+      %symmetry condition
+      C = [C; flip(C(1:end-1))];
+      C = reshape(C, kernelSize);
+      switch Cspace
+      case 'k'
+        % Circularly shift so that the "center" of the OTF is at the
+        % (1,1) element of the array. (from psf2otf)
+        padSize = params.N - kernelSize;
+        C       = padarray(C, padSize, 'post');
+        C       = circshift(C,-floor(kernelSize/2));
+        params.C = C;
+      case 'real'
+        params.C = psf2otf(C, params.N);
+      end
     end
   end
 end
 
 function [tout,y,dy,params] = forwardSolver(tdata,y0,FSA,meta,params,tspan)
   %tspan can either be sol or number of time points
+  if any(params.C(:)>2)
+    tout = NaN;
+    y = NaN;
+    dy = NaN;
+  end
   if isequal(tspan,'sol')
     sol = true;
   else
