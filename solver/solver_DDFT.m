@@ -99,7 +99,7 @@ if ~ASA
     'FSA', true, ...
     'sensFcn', @(t,y) sensFcn(t,y,meta,params), ...
     'ys0', zeros(length(y0),meta.extdata.numParams), ...
-    'ysp0', sensFcn(tspan(1),y0,params,meta));
+    'ysp0', sensFcn(tspan(1),y0,meta,params));
   end
 
   if sol
@@ -122,8 +122,16 @@ else
   'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,sol,info), ...
   'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,sol,hinvGak,info,true), ...
   'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak,true), ...
-  'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak,true),...
-  'interpFcn',@(flag,info,tnew,ynew,h,dif,k,idxNonNegative) ASA_gradient(flag,info,tnew,ynew,h,dif,k,idxNonNegative,sol,@sensFcn_ASA,{params},meta,ASAQuadNp,true));
+  'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak,true));
+  if isfield(params,'Csensval')
+    sensFcnMultiplier = false;
+    sF = @sensFcn;
+  else
+    sensFcnMultiplier = true;
+    sF = @sensFcn_ASA;
+  end
+  moreoptions = moreodeset(moreoptions, ...
+  'interpFcn',@(flag,info,tnew,ynew,h,dif,k,idxNonNegative) ASA_gradient(flag,info,tnew,ynew,h,dif,k,idxNonNegative,sol,sF,{params},meta,ASAQuadNp,sensFcnMultiplier));
 
   if ~discrete
     tspan = [tdata(end),tdata(1)];
@@ -232,15 +240,16 @@ function yy = jacobian_mult(params,xi,t,y,info)
     N = params.N;
     dx = params.dx;
     C = params.C;
-    xi = reshape(xi,N);
-    dfdy = info;
-    mu = dfdy .* xi;
-    mu = mu - ifftn(C .* fftn(xi));
-    yy = 0;
-    for i = 1:length(N)
-      yy = yy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
+    yy = zeros(size(xi));
+    for p = 1:length(size(xi,2))
+      xip = reshape(xi(:,p),N);
+      dfdy = info;
+      mu = dfdy .* xip;
+      mu = mu - ifftn(C .* fftn(xip));
+      for i = 1:length(N)
+        yy(:,p) = yy(:,p) + reshape((circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2, [], 1);
+      end
     end
-    yy = yy(:);
   end
 end
 
@@ -295,11 +304,15 @@ function dy = sensFcn(t,y,meta,params)
     case 'mu'
       mu = customizeSensEval(params,name,y);
     case 'C'
-      mu = -params.Csens(y);
+      if isfield(params,'Csensval')
+        mu = - ifft2(params.Csensval .* fftn(y),'symmetric');
+      else
+        mu = -params.Csens(y);
+      end
     end
     dyi = 0;
-    for i = 1:length(N)
-      dyi = dyi + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
+    for j = 1:length(N)
+      dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
     end
     dy(:,paramsIndex) = reshape(dyi,[],numel(paramsIndex));
   end
