@@ -17,7 +17,7 @@ function roi = roi_circle(xx,yy,center,radius,d,operation)
       if i == 1
         roi = roi_i;
       else
-        roi = max((roi + roi_i),1); %union operator
+        roi = min((roi + roi_i),1); %union operator
       end
     else
       roi_out{i} = roi_i;
