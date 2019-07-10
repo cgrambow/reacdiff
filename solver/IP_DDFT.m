@@ -1,4 +1,4 @@
-function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options)
+function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess)
 addpath('../../CHACR/GIP')
 
 % params.N = [256,256];
@@ -20,7 +20,9 @@ end
 
 meta.C.index = 1:NC;
 meta.C.exp = false;
-x_guess = zeros(1,NC);
+if nargin < 7 || isempty(x_guess)
+  x_guess = zeros(1,NC);
+end
 
 tspan = 100;
 loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);

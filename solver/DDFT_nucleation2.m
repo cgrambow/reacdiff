@@ -1,3 +1,4 @@
+addpath('../../CHACR/GIP')
 tic;
 L = [5,5];
 N = [256,256];
@@ -27,7 +28,7 @@ y0 = roi.*y0 + (1-roi)*rho;
 figure; imagesc(reshape(y0,N));
 
 tspan2 = linspace(0,1.05,100);
-% tspan2 = linspace(0,1.5,100);
+tspan2 = linspace(0,1.5,100);
 [t2,y2] = solver_DDFT(tspan2,y0,params);
 
 figure; visualize([],[],[],y2(1:10:end,:),'c',false,'ImageSize',N);
@@ -37,4 +38,12 @@ tdata = t2(ind);
 ydata = y2(ind,:);
 toc
 
-x_opt = IP_DDFT(tdata,ydata,params,[21,21],'k');
+save_history = true;
+resultpath = [largedatapath,'DDFT_nucleation2.mat'];
+options = optimoptions('fminunc');
+if save_history
+  options = optimoptions(options,'OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
+end
+
+x_opt = IP_DDFT(tdata,ydata,params,[21,21],'k',options,x_opt);
+% [val,gradient] = IP_DDFT_debug(x_opt/max(x_opt)*1.2,tdata,ydata,params,[21,21],'k');
