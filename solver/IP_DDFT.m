@@ -1,4 +1,5 @@
-function x_opt = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess)
+function [x_opt,fval,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,mode)
+%set mode = 'eval' to only do the forward solve and return
 addpath('../../CHACR/GIP')
 
 % params.N = [256,256];
@@ -25,20 +26,27 @@ if nargin < 7 || isempty(x_guess)
 end
 
 tspan = 100;
-loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);
-lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx)*100,dy);
-if nargin > 5 && ~isempty(options)
-  options = optimoptions(options,'SpecifyObjectiveGradient',true,'Display','iter-detailed');
-else
-  options = optimoptions('fminunc','SpecifyObjectiveGradient',true,'Display','iter-detailed');
-end
 
-x_opt = fminunc(@(x) IP(tdata,ydata,x,meta,params, ...
-@(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
-@adjointSolver, ...
-loss,lossHess, ...
-@(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize)), ...
-x_guess, options);
+if nargin > 7 && isequal(mode,'eval')
+  x_opt = IP(tdata,ydata,x_guess,meta,params, ...
+  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
+  [], [], [],...
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'eval',true);
+else
+  loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);
+  lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx)*100,dy);
+  if nargin > 5 && ~isempty(options)
+    options = optimoptions(options,'SpecifyObjectiveGradient',true,'Display','iter-detailed');
+  else
+    options = optimoptions('fminunc','SpecifyObjectiveGradient',true,'Display','iter-detailed');
+  end
+  [x_opt,fval,exitflag] = fminunc(@(x) IP(tdata,ydata,x,meta,params, ...
+  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
+  @adjointSolver, ...
+  loss,lossHess, ...
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize)), ...
+  x_guess, options);
+end
 
 end
 
