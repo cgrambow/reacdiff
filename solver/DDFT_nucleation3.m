@@ -34,9 +34,12 @@ y0 = roi.*y0 + (1-roi)*rho;
 tspan2 = linspace(0,1.5,100);
 [t2,y2] = solver_DDFT(tspan2,y0,params);
 
-ind = 1:100;
-tdata = t2(ind);
-ydata = y2(ind,:);
+ind = 1:50;
+tdata1 = t2(ind);
+ydata1 = y2(ind,:);
+ind = 50:100;
+tdata2 = t2(ind);
+ydata2 = y2(ind,:);
 toc
 
 kernelSize = [41,41];
@@ -45,15 +48,15 @@ Cspace = 'k';
 resultpath = [largedatapath,'DDFT_nucleation3.mat'];
 if runoptim
   save_history = true;
-  options = optimoptions('fminunc');
+  options = optimoptions('fminunc','MaxIterations',5);
   if save_history
     options = optimoptions(options,'OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath,[],true));
   end
   NC = floor((prod(kernelSize)+1)/2);
   x_opt = zeros(1,NC);
-  exitflag = 5;
-  while (exitflag==5)
-    [x_opt,~,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_opt,'tspan','sol');
+  while true
+    x_opt = IP_DDFT(tdata1,ydata1,params,kernelSize,Cspace,options,x_opt,'tspan',200);
+    x_opt = IP_DDFT(tdata2,ydata2,params,kernelSize,Cspace,options,x_opt,'tspan',200);
   end
 else
   meta.C.index = floor((prod(kernelSize)+1)/2);
