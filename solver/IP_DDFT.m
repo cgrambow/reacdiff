@@ -1,5 +1,14 @@
-function [x_opt,fval,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,mode)
-%set mode = 'eval' to only do the forward solve and return
+function [x_opt,fval,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
+ps = inputParser;
+addParameter(ps,'eval',false);
+%set eval = true to only do the forward solve and return
+addParameter(ps,'tspan',100);
+%set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history
+ps.CaseSensitive = false;
+parse(ps,varargin{:});
+tspan = ps.Results.tspan;
+eval = ps.Results.eval;
+
 addpath('../../CHACR/GIP')
 
 % params.N = [256,256];
@@ -25,9 +34,7 @@ if nargin < 7 || isempty(x_guess)
   x_guess = zeros(1,NC);
 end
 
-tspan = 100;
-
-if nargin > 7 && isequal(mode,'eval')
+if eval
   x_opt = IP(tdata,ydata,x_guess,meta,params, ...
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
   [], [], [],...
