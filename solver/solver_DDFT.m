@@ -240,16 +240,13 @@ function yy = jacobian_mult(params,xi,t,y,info)
     N = params.N;
     dx = params.dx;
     C = params.C;
-    yy = zeros(size(xi));
-    for p = 1:length(size(xi,2))
-      xip = reshape(xi(:,p),N);
-      dfdy = info;
-      mu = dfdy .* xip;
-      mu = mu - ifftn(C .* fftn(xip));
-      for i = 1:length(N)
-        yy(:,p) = yy(:,p) + reshape((circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2, [], 1);
-      end
+    xi = reshape(xi,N(1),N(2),[]);
+    mu = info .* xi - ifft2(C .* fft2(xi), 'symmetric');
+    yy = 0;
+    for i = 1:length(N)
+      yy = yy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
     end
+    yy = reshape(yy,prod(N),[]);
   end
 end
 
