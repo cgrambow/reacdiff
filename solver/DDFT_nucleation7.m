@@ -1,6 +1,7 @@
 %data from DDFT_nucleation3
-%based on DDFT_nucleation4, use 4 derivatives
 %use PFC to fit
+%based on DDFT_nucleation4, where we found the result is insensitive to the 4th order
+%use a larger value for initial guess of 4th order coefficient
 addpath('../../CHACR/GIP')
 runoptim = true;
 
@@ -42,17 +43,14 @@ tdata = t2(ind);
 ydata = y2(ind,:);
 toc
 
-kernelSize = 4;
+kernelSize = 3;
 Cspace = 'isotropic';
-params.moreoptions = moreodeset('gmresTol',0.2*1e-5);
+params.moreoptions = moreodeset('gmresTol',1e-5);
 
-resultpath = [largedatapath,'DDFT_nucleation6.mat'];
+resultpath = [largedatapath,'DDFT_nucleation7.mat'];
 
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath,[],true));
 options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region');
 
-varload = load([largedatapath,'DDFT_nucleation4.mat']);
-x_guess = varload.history(end,:);
-x_guess(end) = -exp(x_guess(end));
-x_guess = [x_guess,-10];
+x_guess = [0,0,-5];
 [x_opt,~,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess);
