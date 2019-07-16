@@ -14,13 +14,20 @@ addpath('../../CHACR/GIP')
 ybound = [min(ydata(:)),max(ydata(:))];
 
 if isequal(Cspace,'isotropic')
-  [k2,~] = formk(params.N,params.L);
-  p = custom_Poly;
-  params.Cfunc.func = @(x) C_funcwrapper(k2,x,p.func);
-  params.Cfunc.sens = @(x) C_senswrapper(k2,x,p.sens);
   NC = kernelSize;
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
+  [k2,~] = formk(params.N,params.L);
+  p = custom_Poly;
+  Csensval = feval(p.sens,k2,ones(1,NC));
+  %let the basis of the last derivative be negative
+  Csensval(:,:,end) = -Csensval(:,:,end);
+  params.Csensval = Csensval;
+elseif isequal(Cspace,'FD')
+  NC = kernelSize;
+  meta.C.exp = false(1,NC);
+  meta.C.exp(end) = true;
+  params = FD2otf(NC,params);
 else
   NC = floor((prod(kernelSize)+1)/2);
   params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
@@ -70,11 +77,13 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
     %but it must be converted to be centered at 1,1 in the k-space representation used in DDFT solver
     %consider other extensions:
     %1. Reduce to representing 1D C(k) if it's axisymmetric
-    if isequal(Cspace,'isotropic')
-      %C(k) can be represented by a 1D function
-      params.C = params.Cfunc.func(xparam);
-      params.Csensval = params.Cfunc.sens(xparam);
-    else
+    %Cspace = isotropic, C(k) = a1 + a2*k^2 + a3*k^4 + ...
+    %Cspace = FD, C = a1 - a2*nabla + a3*nabla^2 + ...
+    switch Cspace
+    case {'isotropic','FD'}
+      coeff(1,1,:) = xparam;
+      params.C = sum(params.Csensval .* coeff,3);
+    case {'k','real'}
       if any(mod(kernelSize,2)==0)
         error('kernel size must be odd');
       end
@@ -233,17 +242,30 @@ function dy = Csens_ASA(y,i,Cspace,kernelSize)
   end
 end
 
-function [y,dy] = C_funcwrapper(x,coeff,polyfunc)
-  coeff(end) = -coeff(end);
-  if nargout<2
-    y = feval(polyfunc,x,coeff);
-  else
-    [y,dy] = feval(polyfunc,x,coeff);
-  end
-end
-
-function dy = C_senswrapper(x,coeff,polysens)
-  coeff(end) = - coeff(end);
-  dy = feval(polysens,x,coeff);
-  dy(:,:,end) = -dy(:,:,end);
+function params = FD2otf(numDeriv,params)
+ %transform finite difference coefficient to otf
+ %y(:,:,i) is the otf of the 2(i-1)th derivative
+ %in total, there are numDeriv derivatives
+ npts = numDeriv*2-1;
+ %switch to 0, k^2, k^4, ... rather than 0, nabla^2, nabla^4
+ %but, to be consistent with Cspace = 'isotropic'
+ %let the basis of the last derivative be negative
+ derivcoeff = ones(numDeriv,1);
+ derivcoeff(2:2:end) = -1;
+ derivcoeff(end) = -1;
+ derivdiag = accumarray([1:2:npts;1:numDeriv]',derivcoeff);
+ coeffx = FDcoeff(npts,params.dx(1),derivdiag);
+ coeffy = FDcoeff(npts,params.dx(2),derivdiag);
+ row = [numDeriv*ones(1,npts),1:npts];
+ column = [1:npts,numDeriv*ones(1,npts)];
+ C = zeros(params.N(1),params.N(2),numDeriv);
+ for i = 1:numDeriv
+   if i==1
+     kernel = 1;
+   else
+     kernel = accumarray([row',column'],[coeffx(:,i);coeffy(:,i)]);
+   end
+   C(:,:,i) = psf2otf(kernel,params.N);
+ end
+ params.Csensval = C;
 end
