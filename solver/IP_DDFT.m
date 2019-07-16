@@ -131,11 +131,11 @@ function [tout,y,dy,params] = forwardSolver(tdata,y0,FSA,meta,params,tspan,yboun
     sol = false;
     tdata = linspace(tdata(1),tdata(end),tspan);
   end
-  [tout,y,params,dy] = solver_DDFT(tdata,y0,params,meta,'forward',sol,FSA);
+  [tout,y,params,dy] = solver_DDFT(tdata,y0,params,meta,'forward','sol',sol,'FSA',FSA);
 end
 
 function grad = adjointSolver(tdata,sol,lossgrad,meta,discrete,~,params)
-  grad = solver_DDFT(tdata,sol,params,meta,'adjoint',lossgrad,discrete);
+  grad = solver_DDFT(tdata,sol,params,meta,'adjoint','error',lossgrad,'discrete',discrete);
 end
 
 function dy = Csens(y,Cspace,kernelSize)

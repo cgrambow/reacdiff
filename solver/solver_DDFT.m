@@ -2,13 +2,21 @@ function varargout = solver_DDFT(tspan,y0,params,meta,mode,varargin)
 %this provides solution to both forward and backward evaluation
 %set mode = 'forward' (default) to perform model evaluation, in this mode, we accept two varargin, varargin{1} is sol, when true (false by default), output sol structure (varargin = {tout,sol,params},, when false, varargin = {tout,y,params}. varargin{2} is FSA, when true (false by default), also computes FSA and varargin{4} = ys.
 %set mode = 'adjoint' to perform ASA analysis. varargin{1} = error, varargin{2] = discrete, tspan and y0 must be tdata and sol (solution history). varargout = {grad}
+%params can also contain options and moreoptions
 ASA = (nargin > 4) && isequal(mode,'adjoint');
+ps = inputParser;
+addParameter(ps,'error',[]);
+addParameter(ps,'discrete',[]);
+addParameter(ps,'sol',false);
+addParameter(ps,'FSA',false);
+ps.CaseSensitive = false;
+parse(ps,varargin{:});
 if ASA
-  error = varargin{1};
-  discrete = varargin{2};
+  error = ps.Results.error;
+  discrete = ps.Results.discrete;
 else
-  sol = ~isempty(varargin) && varargin{1};
-  FSA = length(varargin)>1 && varargin{2};
+  sol = ps.Results.sol;
+  FSA = ps.Results.FSA;
 end
 
 addpath('../../CHACR/odesolver')
@@ -67,6 +75,13 @@ LK = psf2otf(Lconv,N);
 %the Jacobian and mass matrix of the system is Hermitian, so the treatment of pencil is the same for forward and ASA eval
 moreoptions = moreodeset('skipInit',true,'Krylov',true, ...
 'gmrestol',1e-4,'restart',10);
+if isfield(params,'moreoptions') && ~isempty(params.moreoptions)
+  moreoptions = moreodeset(moreoptions,params.moreoptions);
+end
+options = odeset;
+if isfield(params,'options') && ~isempty(params.options)
+  options = moreodeset(options,params.options);
+end
 
 if ~ASA
   if isempty(y0) || isscalar(y0)
@@ -86,7 +101,7 @@ if ~ASA
   end
   t0 = tspan(1);
   yp0 = RHS(t0,y0,params);
-  options = odeset('InitialSlope',yp0,'Jacobian',@(t,y) jacobian(t,y,params));
+  options = odeset(options,'InitialSlope',yp0,'Jacobian',@(t,y) jacobian(t,y,params));
   moreoptions = moreodeset(moreoptions, ...
   'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,y,info), ...
   'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,y,hinvGak,info), ...
@@ -116,7 +131,7 @@ else
   sol = y0;
   ASAQuadNp = 1;
 
-  options = odeset('Jacobian',@(t,y) jacobian(t,sol,params), ...
+  options = odeset(options,'Jacobian',@(t,y) jacobian(t,sol,params), ...
   'mass', -speye(prod(params.N)),'MassSingular','yes','MStateDependence','none');
   moreoptions = moreodeset(moreoptions, ...
   'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,sol,info), ...
