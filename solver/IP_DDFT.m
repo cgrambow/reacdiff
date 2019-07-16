@@ -11,30 +11,30 @@ eval = ps.Results.eval;
 
 addpath('../../CHACR/GIP')
 
-% params.N = [256,256];
-% params.L = [5,5];
-% params.dx = params.L ./ params.N;
+ybound = [min(ydata(:)),max(ydata(:))];
+
 if isequal(Cspace,'isotropic')
   [k2,~] = formk(params.N,params.L);
-  k = sqrt(k2);
-  evenpoly = custom_EvenPoly;
-  params.Cfunc.func = @(x) evenpoly.func(k,x);
-  params.Cfunc.sens = @(x) evenpoly.sens(k,x);
+  p = custom_Poly;
+  params.Cfunc.func = @(x) C_funcwrapper(k2,x,p.func);
+  params.Cfunc.sens = @(x) C_senswrapper(k2,x,p.sens);
   NC = kernelSize;
+  meta.C.exp = false(1,NC);
+  meta.C.exp(end) = true;
 else
   NC = floor((prod(kernelSize)+1)/2);
   params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
+  meta.C.exp = false;
 end
 
 meta.C.index = 1:NC;
-meta.C.exp = false;
 if nargin < 7 || isempty(x_guess)
   x_guess = zeros(1,NC);
 end
 
 if eval
   x_opt = IP(tdata,ydata,x_guess,meta,params, ...
-  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
+  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   [], [], [],...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'eval',true);
 else
@@ -46,7 +46,7 @@ else
     options = optimoptions('fminunc','SpecifyObjectiveGradient',true,'Display','iter-detailed');
   end
   [x_opt,fval,exitflag] = fminunc(@(x) IP(tdata,ydata,x,meta,params, ...
-  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
+  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   @adjointSolver, ...
   loss,lossHess, ...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize)), ...
@@ -102,12 +102,19 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
   end
 end
 
-function [tout,y,dy,params] = forwardSolver(tdata,y0,FSA,meta,params,tspan)
+function [tout,y,dy,params] = forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound)
   %tspan can either be sol or number of time points
-  if any(params.C(:)>2)
+  if ~isfield(params,'mu') || isempty(params.mu)
+    dmu = 1 - ybound + ybound.^2;
+  else
+    dmu = customizeFunGrad(params,'mu','grad',ybound);
+  end
+  if any(dmu-max(params.C(:))<0)
+    %instability even at the max or min y value
     tout = NaN;
     y = NaN;
     dy = NaN;
+    return
   end
   if isequal(tspan,'sol')
     sol = true;
@@ -224,4 +231,19 @@ function dy = Csens_ASA(y,i,Cspace,kernelSize)
       dy = circshift(y,ind) + circshift(y,-ind);
     end
   end
+end
+
+function [y,dy] = C_funcwrapper(x,coeff,polyfunc)
+  coeff(end) = -coeff(end);
+  if nargout<2
+    y = feval(polyfunc,x,coeff);
+  else
+    [y,dy] = feval(polyfunc,x,coeff);
+  end
+end
+
+function dy = C_senswrapper(x,coeff,polysens)
+  coeff(end) = - coeff(end);
+  dy = feval(polysens,x,coeff);
+  dy(:,:,end) = -dy(:,:,end);
 end
