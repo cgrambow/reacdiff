@@ -17,11 +17,9 @@ addpath('../../CHACR/GIP')
 if isequal(Cspace,'isotropic')
   [k2,~] = formk(params.N,params.L);
   k = sqrt(k2);
-%   bound = [0, 2*pi*params.N(1)/params.L(1)/2]; %assuming at least 5 points across each pattern
-  bound = [0,max(k(:))];
-  expleg = custom_Legendre(1,bound);
-  params.Cfunc.func = @(x) expleg.func(k,x);
-  params.Cfunc.sens = @(x) expleg.sens(k,x);
+  evenpoly = custom_EvenPoly;
+  params.Cfunc.func = @(x) evenpoly.func(k,x);
+  params.Cfunc.sens = @(x) evenpoly.sens(k,x);
   NC = kernelSize;
 else
   NC = floor((prod(kernelSize)+1)/2);
