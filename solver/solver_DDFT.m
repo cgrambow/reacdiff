@@ -28,14 +28,14 @@ n = prod(params.N);
 N = params.N;
 L = params.L;
 dx = params.dx;
-if ~isfield(params,'C')
+if ~isfield(params,'C') || isempty(params.C)
   %default
   [k2,k] = formk(N,L);
   k0 = 10;
   alpha = 2;
   params.C = exp(-(sqrt(k2)-k0).^2/(2*alpha^2))*0.95;
 end
-if ~isfield(params,'mu')
+if ~isfield(params,'mu') || isempty(params.mu)
   params.mu.func = @(x,coeff) x - x.^2/2 + x.^3/3; %@(x) log(1+x)
   params.mu.grad = @(x,coeff) 1 - x + x.^2;
   params.mu.params = [];
