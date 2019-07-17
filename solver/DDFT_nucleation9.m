@@ -1,5 +1,5 @@
 %data from DDFT_nucleation3
-%use PFC to fit
+%use PFC to fit, fit C and mu
 addpath('../../CHACR/GIP')
 runoptim = true;
 
@@ -45,10 +45,10 @@ kernelSize = 3;
 Cspace = 'isotropic';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
-resultpath = [largedatapath,'DDFT_nucleation4.mat'];
+resultpath = [largedatapath,'DDFT_nucleation9.mat'];
 
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
 options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region');
 
 x_guess = [0,0,-10];
-[x_opt,~,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess);
+[x_opt,~,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3);
