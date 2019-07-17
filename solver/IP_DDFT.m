@@ -4,16 +4,20 @@ addParameter(ps,'eval',false);
 %set eval = true to only do the forward solve and return
 addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history
+addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
+addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
 eval = ps.Results.eval;
+Nmu = ps.Results.Nmu;
 
 addpath('../../CHACR/GIP')
 
 ybound = [min(ydata(:)),max(ydata(:))];
 
-if isequal(Cspace,'isotropic')
+switch Cspace
+case 'isotropic'
   NC = kernelSize;
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
@@ -23,12 +27,25 @@ if isequal(Cspace,'isotropic')
   %let the basis of the last derivative be negative
   Csensval(:,:,end) = -Csensval(:,:,end);
   params.Csensval = Csensval;
-elseif isequal(Cspace,'FD')
+case 'isotropic_CmE'
+  %constant minus exponential
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  if isempty(ps.Results.bound)
+    bound = [0,max(k2(:))];
+  else
+    bound = ps.Results.bound;
+  end
+  expleg = custom_ExpLegendre(1,bound);
+  params.Cfunc.func = @(coeff) coeff(1)-expleg.func(k2,coeff(2:end));
+  params.Cfunc.sens = @(coeff) CmE_sens(k2,coeff,expleg.sens);
+case 'FD'
   NC = kernelSize;
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
   params = FD2otf(NC,params);
-else
+otherwise
   NC = floor((prod(kernelSize)+1)/2);
   params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
   meta.C.exp = false;
@@ -37,6 +54,23 @@ end
 meta.C.index = 1:NC;
 if nargin < 7 || isempty(x_guess)
   x_guess = zeros(1,NC);
+end
+
+if Nmu>0
+  meta.mu.index = NC+(1:Nmu);
+  meta.mu.exp = false(1,Nmu);
+  meta.mu.exp(end) = true; %the coefficient of the higher odd order term must be positive
+  params.mu = ChemPotential_Legendre(1,ybound,false,'onlyEnthalpy');
+  if length(x_guess)<(NC+Nmu)
+    mu_guess = zeros(1,Nmu);
+    mu_guess(1) = 2;
+    %the following makes mu nonmonotonic if Nmu>1
+    % mu_guess = [zeros(1,Nmu-1),1];
+    % [~,dmu] = feval(params.mu.func,ybound(2),mu_guess);
+    % %set the gradient at ybound to be 2
+    % mu_guess(end) = log(2/dmu);
+    x_guess = [x_guess(1:NC), mu_guess];
+  end
 end
 
 if eval
@@ -83,6 +117,9 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
     case {'isotropic','FD'}
       coeff(1,1,:) = xparam;
       params.C = sum(params.Csensval .* coeff,3);
+    case 'isotropic_CmE'
+      params.C = params.Cfunc.func(xparam);
+      params.Csensval = params.Cfunc.sens(xparam);
     case {'k','real'}
       if any(mod(kernelSize,2)==0)
         error('kernel size must be odd');
@@ -268,4 +305,9 @@ function params = FD2otf(numDeriv,params)
    C(:,:,i) = psf2otf(kernel,params.N);
  end
  params.Csensval = C;
+end
+
+function y = CmE_sens(x,coeff,expleg_sens)
+  y  = -feval(expleg_sens,x,coeff(2:end));
+  y = cat(3,ones(size(x)),y);
 end
