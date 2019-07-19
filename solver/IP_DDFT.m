@@ -1,4 +1,4 @@
-function [x_opt,fval,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
+function [x_opt,fval,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
 ps = inputParser;
 addParameter(ps,'eval',false);
 %set eval = true to only do the forward solve and return
@@ -23,7 +23,13 @@ case 'isotropic'
   meta.C.exp(end) = true;
   [k2,~] = formk(params.N,params.L);
   p = custom_Poly;
-  Csensval = feval(p.sens,k2,ones(1,NC));
+  if Nmu>0
+    %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
+    Csensval = feval(p.sens,k2,ones(1,NC+1));
+    Csensval(:,:,1) = [];
+  else
+    Csensval = feval(p.sens,k2,ones(1,NC));
+  end
   %let the basis of the last derivative be negative
   Csensval(:,:,end) = -Csensval(:,:,end);
   params.Csensval = Csensval;
@@ -38,8 +44,14 @@ case 'isotropic_CmE'
     bound = ps.Results.bound;
   end
   expleg = custom_ExpLegendre(1,bound);
-  params.Cfunc.func = @(coeff) coeff(1)-expleg.func(k2,coeff(2:end));
-  params.Cfunc.sens = @(coeff) CmE_sens(k2,coeff,expleg.sens);
+  if Nmu>0
+    %minus exponential only
+    params.Cfunc.func = @(coeff) -expleg.func(k2,coeff);
+    params.Cfunc.sens = @(coeff) -expleg.sens(k2,coeff);
+  else
+    params.Cfunc.func = @(coeff) coeff(1)-expleg.func(k2,coeff(2:end));
+    params.Cfunc.sens = @(coeff) CmE_sens(k2,coeff,expleg.sens);
+  end
 case 'FD'
   NC = kernelSize;
   meta.C.exp = false(1,NC);
