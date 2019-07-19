@@ -36,6 +36,10 @@ n = prod(params.N);
 N = params.N;
 L = params.L;
 dx = params.dx;
+if ~isfield(params,'D') || isempty(params.D)
+  %here D is a constant diffusivity that sets the time scale
+  params.D = 1;
+end
 if ~isfield(params,'C') || isempty(params.C)
   %default
   [k2,k] = formk(N,L);
@@ -201,6 +205,7 @@ function dy = RHS(t,y,params)
     dy = dy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
   end
   dy = dy(:);
+  dy = params.D * dy;
 end
 
 function dfdy = jacobian(t,y,params)
@@ -210,6 +215,7 @@ function dfdy = jacobian(t,y,params)
   end
   %this only computes the nonlinear part, as an input to KrylovDecomp
   dfdy = customizeFunGrad(params,'mu','grad',y);
+  dfdy = params.D * dfdy;
 end
 
 function Pargs = KrylovDecomp(L,dfdy,hinvGak,adjoint)
@@ -235,8 +241,9 @@ function yy = KrylovPrecon(LK,params,x,L,U,hinvGak,adjoint)
   end
   N = params.N;
   C = params.C;
+  D = params.D;
   x = reshape(x,N);
-  yy = ifftn( fftn(x) ./ (msign + hinvGak*LK.*C) );
+  yy = ifftn( fftn(x) ./ (msign + hinvGak*D*LK.*C) );
   yy = yy(:);
   yy = U \ (L \ yy);
 end
@@ -262,6 +269,7 @@ function yy = jacobian_mult(params,xi,t,y,info)
       yy = yy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
     end
     yy = reshape(yy,prod(N),[]);
+    yy = params.D * yy;
   end
 end
 
@@ -321,12 +329,18 @@ function dy = sensFcn(t,y,meta,params)
       else
         mu = -params.Csens(y);
       end
+    case 'D'
+      mu = customizeFunGrad(params,'mu','fun',y);
+      mu = mu - ifftn(params.C .* fftn(y));
     end
     dyi = 0;
     for j = 1:length(N)
       dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
     end
     dy(:,paramsIndex) = reshape(dyi,[],numel(paramsIndex));
+    if ~isequal(name,'D')
+      dy(:,paramsIndex) = params.D * dy(:,paramsIndex);
+    end
   end
 end
 
@@ -351,7 +365,7 @@ function dy = sensFcn_ASA(t,y,omega,meta,params)
       for j = 1:length(N)
         dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
       end
-      dy(paramsIndex) = sum(omega.*dyi(:));
+      dy(paramsIndex) = params.D * sum(omega.*reshape(dyi,[],numel(paramsIndex)));
     case 'C'
       for p = 1:length(paramsIndex)
         mu = -params.Csens(y,p);
@@ -359,8 +373,16 @@ function dy = sensFcn_ASA(t,y,omega,meta,params)
         for j = 1:length(N)
           dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
         end
-        dy(paramsIndex(p)) = sum(omega.*dyi(:));
+        dy(paramsIndex(p)) = params.D * sum(omega.*dyi(:));
       end
+    case 'D'
+      mu = customizeFunGrad(params,'mu','fun',y);
+      mu = mu - ifftn(params.C .* fftn(y));
+      dyi = 0;
+      for j = 1:length(N)
+        dyi = dyi + (circshift(mu,1,j)+circshift(mu,-1,j)-2*mu)/dx(j)^2;
+      end
+      dy(paramsIndex) = sum(omega.*reshape(dyi,[],numel(paramsIndex)));
     end
   end
 end

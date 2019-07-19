@@ -6,6 +6,7 @@ addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
 addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
+addParameter(ps,'D',true); %setting this to true turns on optimizing over D
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
@@ -68,12 +69,13 @@ if nargin < 7 || isempty(x_guess)
   x_guess = zeros(1,NC);
 end
 
+numParams = NC;
 if Nmu>0
-  meta.mu.index = NC+(1:Nmu);
+  meta.mu.index = numParams+(1:Nmu);
   meta.mu.exp = false(1,Nmu);
   meta.mu.exp(end) = true; %the coefficient of the higher odd order term must be positive
   params.mu = ChemPotential_Legendre(1,ybound,false,'onlyEnthalpy');
-  if length(x_guess)<(NC+Nmu)
+  if length(x_guess)<(numParams+Nmu)
     mu_guess = zeros(1,Nmu);
     mu_guess(1) = 2;
     %the following makes mu nonmonotonic if Nmu>1
@@ -81,7 +83,17 @@ if Nmu>0
     % [~,dmu] = feval(params.mu.func,ybound(2),mu_guess);
     % %set the gradient at ybound to be 2
     % mu_guess(end) = log(2/dmu);
-    x_guess = [x_guess(1:NC), mu_guess];
+    x_guess = [x_guess(1:numParams), mu_guess];
+  end
+  numParams = NC+Nmu;
+end
+
+if ps.Results.D
+  meta.D.index = numParams+1;
+  meta.D.exp = true;
+  if length(x_guess)<(numParams+1)
+    D_guess = -3;
+    x_guess = [x_guess(1:numParams), D_guess];
   end
 end
 
@@ -112,6 +124,8 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
   switch name
   case 'mu'
     params.(name).params = xparam;
+  case 'D'
+    params.(name) = xparam;
   case 'C'
     %xparam for C is cut in half due to symmetry.
     %For the purpose of symmetry, we require that the kernel size be odd in both dimensions
