@@ -7,11 +7,13 @@ addParameter(ps,'tspan',100);
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
 addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
 addParameter(ps,'D',true); %setting this to true turns on optimizing over D
+addParameter(ps,'discrete',false);
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
 eval = ps.Results.eval;
 Nmu = ps.Results.Nmu;
+discrete = ps.Results.discrete;
 
 addpath('../../CHACR/GIP')
 
@@ -114,7 +116,7 @@ else
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   @adjointSolver, ...
   loss,lossHess, ...
-  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize)), ...
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'discrete',discrete), ...
   x_guess, options);
 end
 
