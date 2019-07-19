@@ -3,10 +3,10 @@ ps = inputParser;
 addParameter(ps,'eval',false);
 %set eval = true to only do the forward solve and return
 addParameter(ps,'tspan',100);
-%set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history
+%set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
 addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
-addParameter(ps,'D',true); %setting this to true turns on optimizing over D
+addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
@@ -14,6 +14,9 @@ tspan = ps.Results.tspan;
 eval = ps.Results.eval;
 Nmu = ps.Results.Nmu;
 discrete = ps.Results.discrete;
+if discrete
+  tspan = 'discrete';
+end
 
 addpath('../../CHACR/GIP')
 
@@ -190,9 +193,12 @@ function [tout,y,dy,params] = forwardSolver(tdata,y0,FSA,meta,params,tspan,yboun
     dy = NaN;
     return
   end
-  if isequal(tspan,'sol')
+  switch tspan
+  case 'sol'
     sol = true;
-  else
+  case 'discrete'
+    sol = false;
+  otherwise
     sol = false;
     tdata = linspace(tdata(1),tdata(end),tspan);
   end
