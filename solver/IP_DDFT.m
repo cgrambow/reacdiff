@@ -1,6 +1,6 @@
-function [x_opt,fval,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
+function [x_opt,fval,exitflag,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
 ps = inputParser;
-addParameter(ps,'eval',false);
+addParameter(ps,'mode','IP'); %IP, eval, pp (walks through the function without eval or IP)
 %set eval = true to only do the forward solve and return
 addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
@@ -11,7 +11,7 @@ addParameter(ps,'discrete',false);
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
-eval = ps.Results.eval;
+mode = ps.Results.mode;
 Nmu = ps.Results.Nmu;
 discrete = ps.Results.discrete;
 if discrete
@@ -102,12 +102,15 @@ if ps.Results.D
   end
 end
 
-if eval
+switch mode
+case 'eval'
   x_opt = IP(tdata,ydata,x_guess,meta,params, ...
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   [], [], [],...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'eval',true);
-else
+  fval = [];
+  exitflag = [];
+case 'IP'
   loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);
   lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx)*100,dy);
   if nargin > 5 && ~isempty(options)
@@ -121,6 +124,10 @@ else
   loss,lossHess, ...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'discrete',discrete), ...
   x_guess, options);
+end
+
+if nargout > 3
+  %post processing
 end
 
 end

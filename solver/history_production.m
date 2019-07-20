@@ -76,7 +76,7 @@ for i = 1:numIter
     y = varload.y;
     visualize([],[],[],y{ind(i)}(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
   else
-    yhistory = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'eval',true);
+    yhistory = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval');
     visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
   end
   subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
