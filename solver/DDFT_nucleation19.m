@@ -36,7 +36,7 @@ y0 = roi.*y0 + (1-roi)*rho;
 tspan2 = linspace(0,2.5,100);
 [t2,y2] = solver_DDFT(tspan2,y0,params);
 
-ind = 1:10:100;
+ind = 1:100;
 tdata = t2(ind);
 ydata = y2(ind,:);
 toc
@@ -55,7 +55,7 @@ options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-regio
 x_guess = [0,-10,0.5,0,-3];
 
 
-[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true);
+[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',false);
 
 
 % ypred = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x_opt,'Nmu',3,'eval',true);

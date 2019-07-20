@@ -1,7 +1,6 @@
 %based on DDFT_nucleation11
-%same time range as 15, a different initial guess
-%optimize D as well
-%fail, no need to optimize D together
+%same time range as 13, use up to 8th order PFC
+%fail
 addpath('../../CHACR/GIP')
 runoptim = true;
 
@@ -43,21 +42,23 @@ tdata = t2(ind);
 ydata = y2(ind,:);
 toc
 
-
-kernelSize = 2;
+kernelSize = 3;
 Cspace = 'isotropic';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
-
-resultpath = [largedatapath,'DDFT_nucleation17.mat'];
+resultpath = [largedatapath,'DDFT_nucleation14.mat'];
 
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
-options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region','MaxFunctionEvaluations',10000,'MaxIterations',10000);
+options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region');
 
-x_guess = [0,-12,0.5,0,-3,log(0.1)];
+%x_guess = [0,0,-20,0.5,0,-3]
 
-[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'D',true,'tspan',300);
+varload = load([largedatapath,'DDFT_nucleation11']);
+x_opt = varload.history(end,:);
+x_opt(2) = -exp(x_opt(2));
+x_guess = [x_opt(1:2),-30,x_opt(3:5)];
+[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'tspan',300);
 
-
-
+% varload = load([largedatapath,'DDFT_nucleation11']);
+% x_opt = varload.history(end,:);
 % ypred = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x_opt,'Nmu',3,'eval',true);
