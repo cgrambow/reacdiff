@@ -1,5 +1,5 @@
-function history_production(resultpath,ind,modelfunc,arg,meta,tdata,ydata,params,kernelSize,Cspace,varargin)
-%Two figures for figure handle
+function history_production(resultpath,ind,modelfunc,arg,tdata,ydata,params,kernelSize,Cspace,varargin)
+%modelfunc and arg should both be struct with fieldnames corresponding to the parameters to be plotted
 %note that ind is the indices of the optimization steps to be plotted. ind can also be 'end', in order to quickly visualize the final result.
 %Use name value pair;
 %'label'=true (default) to label the iteration number somewhere according to 'labelPosition'(= 'best' by default) for the first figure and to the left of each row for the second figure
@@ -12,6 +12,7 @@ function history_production(resultpath,ind,modelfunc,arg,meta,tdata,ydata,params
 %use CtruthSubplot as a vector to specify where to put the Ctruth
 %If there is more than one functions to plot, modelfunc should be a struct, whose field names match those in the meta. If there is only one function to plot, modelfunc can either be a struct or simply a function handle
 %the result file can also contain y, the solution to the PDE at each step, in which case we don't need to recompute
+%IP_DDFT_arg, varargin for IP_DDFT
 ps = inputParser;
 addParameter(ps,'label',true);
 addParameter(ps,'labelPosition','top');
@@ -21,17 +22,19 @@ addParameter(ps,'ExchangeCurrentFieldColorScale',[]);
 addParameter(ps,'FrameIndex',':');
 addParameter(ps,'Orientation','horizontal');
 addParameter(ps,'yyaxisLim',[]);
+addParameter(ps,'xlim',[]);
 addParameter(ps,'timeLabel',true);
 addParameter(ps,'FontSize',12);
 addParameter(ps,'legend',[]);
 addParameter(ps,'scale',[]);
 addParameter(ps,'CtruthSubplot',[]);
+addParameter(ps,'IP_DDFT_arg',{});
+addParameter(ps,'k0',1); %used to scale k
 parse(ps,varargin{:});
 ps = ps.Results;
 
 varload = load(resultpath);
 history = varload.history;
-history = [zeros(1,size(history,2)); history]; %hardcoded!!!
 if isempty(ind)
   ind = 1:size(history,1);
 elseif isequal(ind,'end')
@@ -39,9 +42,6 @@ elseif isequal(ind,'end')
 end
 
 
-%plot target and fitted function
-names = fieldnames(meta);
-numFunc = numel(names);
 numIter = length(ind);
 if isempty(ps.scale)
   ps.scale = false(1,numIter);
@@ -76,20 +76,20 @@ for i = 1:numIter
     y = varload.y;
     visualize([],[],[],y{ind(i)}(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
   else
-    yhistory = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval');
+    [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval',ps.IP_DDFT_arg{:});
     visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
   end
+  meta = pp.meta;
+  names = fieldnames(meta);
+  numFunc = numel(names);
   subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
   for j=1:numFunc
     name = names{j};
-    if isequal(name,'kappa')
+    if ismember(name,{'D','extdata'})
       continue;
     end
-    if isequal(name,'C')
-      C = history(ind(i),:);
-      C = [C,flip(C(1:end-1))];
-      C = reshape(C,kernelSize);
-      imagesc(C);
+    if isequal(name,'C') && ismember(Cspace,{'k','real'})
+      imagesc(pp.params.C);
       caxis([0,1]);
       ax = gca;
       axis(ax,'image');
@@ -97,37 +97,62 @@ for i = 1:numIter
       ax.YTick = [];
       ax.Box = 'off';
     else
+      if isequal(name,'C') && ismember(Cspace,{'isotropic','isotropic_CmE'})
+        customfunc = pp.params.Cfunc.func;
+        customparams = pp.params.Cfunc.params;
+      else
+        customfunc = pp.params.(name).func;
+        customparams = pp.params.(name).params;
+      end
       if j==1
         yyaxis left
       elseif j==2
         yyaxis right
       end
-      plot(arg,target{j},'--','LineWidth',2);
+      argj = arg.(name);
+      if isequal(name,'C') && ismember(Cspace,{'isotropic','isotropic_CmE'})
+        xscale = ps.k0;
+      else
+        xscale = 1;
+      end
+      plot(argj,modelfunc.(name)(argj*xscale),'--','LineWidth',2);
       ax = gca;
       ylimtemp = ax.YLim;
       hold on;
-      if isfield(meta,'kappa') && ps.scale(i)
-        scale = exp(history(ind(i),meta.kappa.index)) / params.kappa;
-        if isequal(name,'ChemicalPotential')
-          scale = 1/scale;
-        end
-      else
-        scale = 1;
-      end
-      plot(arg,customfunc(arg,history(ind(i),meta.(name).index))*scale,'LineWidth',2);
+      plot(argj,customfunc(argj*xscale,customparams),'LineWidth',2);
       if isempty(ps.yyaxisLim)
         ax.YLim = ylimtemp;
       else
         ax.YLim = ps.yyaxisLim(j,:);
       end
+      if ~isempty(ps.xlim)
+        ax.XLim = ps.xlim;
+      end
       axis square
+      if i~=numIter
+        ax.XTick = [];
+      else
+        namesflag = ismember({'mu','C'},names);
+        if namesflag(1) && ~namesflag(2)
+          xl = '\psi';
+        elseif ~namesflag(1) && namesflag(2)
+          xl = 'k/k_0';
+        elseif all(namesflag)
+          xl = '\psi or k/k_0';
+        end
+        xlabel(xl);
+        if ~isempty(ps.legend)
+          legend(ps.legend{:});
+          legend('boxoff');
+        end
+      end
     end
     if ps.label && j==1
       text(0.1,1.2,['Iter. ',num2str(ind(i)-1)],'Units','normalized','HorizontalAlignment',ps.labelHorizontalAlignment);
     end
   end
 end
-if isfield(meta,'C') && ~isempty(ps.CtruthSubplot)
+if isfield(meta,'C') && ismember(Cspace,{'k','real'}) && ~isempty(ps.CtruthSubplot)
   axC = subtightplot(rowtotal,columntotal,columntotal*(ps.CtruthSubplot(1)-1)+ps.CtruthSubplot(2),stparg{:});
   CC = params.C;
   halfSize = (kernelSize-1)/2;
