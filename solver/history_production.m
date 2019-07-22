@@ -13,6 +13,7 @@ function history_production(resultpath,ind,modelfunc,arg,tdata,ydata,params,kern
 %If there is more than one functions to plot, modelfunc should be a struct, whose field names match those in the meta. If there is only one function to plot, modelfunc can either be a struct or simply a function handle
 %the result file can also contain y, the solution to the PDE at each step, in which case we don't need to recompute
 %IP_DDFT_arg, varargin for IP_DDFT
+addpath('../../CHACR/IP')
 ps = inputParser;
 addParameter(ps,'label',true);
 addParameter(ps,'labelPosition','top');
@@ -30,6 +31,8 @@ addParameter(ps,'scale',[]);
 addParameter(ps,'CtruthSubplot',[]);
 addParameter(ps,'IP_DDFT_arg',{});
 addParameter(ps,'k0',1); %used to scale k
+addParameter(ps,'dmu_at_0',1); %when meta has both mu and C, rescale so that dmu/dx at 0 has this value
+addParameter(ps,'mu_at_0',0); %offset mu so that mu at 0 has this value
 parse(ps,varargin{:});
 ps = ps.Results;
 
@@ -81,15 +84,27 @@ for i = 1:numIter
   end
   meta = pp.meta;
   names = fieldnames(meta);
+  namesflag = ismember({'mu','C'},names);
   numFunc = numel(names);
   subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
+  if all(namesflag)
+    %calculate current gradient of mu at x=0
+    grad0 = customizeFunGrad(pp.params,'mu','grad',0);
+    %gradient of the first order basis function of mu
+    [~,grad1] = feval(pp.params.mu.func,0,1);
+    %set the gradient of mu at x=0 to be 1. The offset is
+    offset = (ps.dmu_at_0-grad0)/grad1;
+    pp.params.mu.params(1) = pp.params.mu.params(1) + offset;
+  else
+    offset = 0;
+  end
   for j=1:numFunc
     name = names{j};
     if ismember(name,{'D','extdata'})
       continue;
     end
     if isequal(name,'C') && ismember(Cspace,{'k','real'})
-      imagesc(pp.params.C);
+      imagesc(pp.params.C-offset);
       caxis([0,1]);
       ax = gca;
       axis(ax,'image');
@@ -100,9 +115,11 @@ for i = 1:numIter
       if isequal(name,'C') && ismember(Cspace,{'isotropic','isotropic_CmE'})
         customfunc = pp.params.Cfunc.func;
         customparams = pp.params.Cfunc.params;
-      else
+        yoffset = offset;
+      elseif isequal(name,'mu')
         customfunc = pp.params.(name).func;
         customparams = pp.params.(name).params;
+        yoffset = - customfunc(0,customparams);
       end
       if j==1
         yyaxis left
@@ -119,7 +136,7 @@ for i = 1:numIter
       ax = gca;
       ylimtemp = ax.YLim;
       hold on;
-      plot(argj,customfunc(argj*xscale,customparams),'LineWidth',2);
+      plot(argj,customfunc(argj*xscale,customparams)+yoffset,'LineWidth',2);
       if isempty(ps.yyaxisLim)
         ax.YLim = ylimtemp;
       else
@@ -132,7 +149,6 @@ for i = 1:numIter
       if i~=numIter
         ax.XTick = [];
       else
-        namesflag = ismember({'mu','C'},names);
         if namesflag(1) && ~namesflag(2)
           xl = '\psi';
         elseif ~namesflag(1) && namesflag(2)
