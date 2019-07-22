@@ -1,7 +1,7 @@
 %based on DDFT_nucleation11
 %use a different time range
 addpath('../../CHACR/GIP')
-runoptim = true;
+runoptim = false;
 
 tic;
 L = [5,5];
@@ -50,5 +50,16 @@ resultpath = [largedatapath,'DDFT_nucleation13.mat'];
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
 options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region');
 
-x_guess = [0,-10,0.5,0,-3];
-[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'tspan',300);
+if runoptim
+  x_guess = [0,-10,0.5,0,-3];
+  [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'tspan',300);
+else
+  modelfunc.C = @(k) exp(-(k-k0).^2/(2*alpha^2))*0.95;
+  modelfunc.mu = @(x) x - x.^2/2 + x.^3/3;
+  arg.C = linspace(0,2,500);
+  arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
+  frameindex = 1:20:100;
+  history_production(resultpath,[1,21,45,125],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,'FrameIndex',frameindex,'IP_DDFT_arg',{'Nmu',3},'yyaxisLim',[-1,1;-1,1],'k0',k0,'xlim',[min(ydata(:)),2]);
+  f = gcf;
+  f.Position = [680 337 522 641];
+end
