@@ -104,7 +104,7 @@ end
 
 switch mode
 case 'eval'
-  x_opt = IP(tdata,ydata,x_guess,meta,params, ...
+  [x_opt,~,params] = IP(tdata,ydata,x_guess,meta,params, ...
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   [], [], [],...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'eval',true);
@@ -128,6 +128,21 @@ end
 
 if nargout > 3
   %post processing
+  if isequal(Cspace,'isotropic')
+    if Nmu>0
+      params.Cfunc.func = @(x,coeff) p.func(x.^2,[0,coeff(1:end-1),-coeff(end)]);
+    else
+      params.Cfunc.func = @(x,coeff) p.func(x.^2,[coeff(1:end-1),-coeff(end)]);
+    end
+  elseif isequal(Cspace,'isotropic_CmE')
+    if Nmu>0
+      params.Cfunc.func = @(x,coeff) -expleg.func(x.^2,coeff);
+    else
+      params.Cfunc.func = @(x,coeff) coeff(1)-expleg.func(x.^2,coeff(2:end));
+    end
+  end
+  pp.params = params;
+  pp.meta = meta;
 end
 
 end
@@ -155,9 +170,11 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
     case {'isotropic','FD'}
       coeff(1,1,:) = xparam;
       params.C = sum(params.Csensval .* coeff,3);
+      params.Cfunc.params = xparam;
     case 'isotropic_CmE'
       params.C = params.Cfunc.func(xparam);
       params.Csensval = params.Cfunc.sens(xparam);
+      params.Cfunc.params = xparam;
     case {'k','real'}
       if any(mod(kernelSize,2)==0)
         error('kernel size must be odd');
