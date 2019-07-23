@@ -6,6 +6,7 @@ addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
 addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
+addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to be positive (exponentiated)
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
 ps.CaseSensitive = false;
@@ -13,6 +14,7 @@ parse(ps,varargin{:});
 tspan = ps.Results.tspan;
 mode = ps.Results.mode;
 Nmu = ps.Results.Nmu;
+mu_positive = ps.Results.mu_positive;
 discrete = ps.Results.discrete;
 if discrete
   tspan = 'discrete';
@@ -78,7 +80,9 @@ numParams = NC;
 if Nmu>0
   meta.mu.index = numParams+(1:Nmu);
   meta.mu.exp = false(1,Nmu);
-  meta.mu.exp(end) = true; %the coefficient of the higher odd order term must be positive
+  if mu_positive
+    meta.mu.exp(end) = true; %the coefficient of the higher odd order term must be positive
+  end
   params.mu = ChemPotential_Legendre(1,ybound,false,'onlyEnthalpy');
   if length(x_guess)<(numParams+Nmu)
     mu_guess = zeros(1,Nmu);
