@@ -10,6 +10,9 @@ addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must 
 addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to be positive (exponentiated)
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
+addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_cutoff
+addParameter(ps,'assign_suppress',{});
+%when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
@@ -17,6 +20,8 @@ mode = ps.Results.mode;
 Nmu = ps.Results.Nmu;
 mu_positive = ps.Results.mu_positive;
 discrete = ps.Results.discrete;
+cutoff = ps.Results.cutoff;
+suppress = ps.Results.assign_suppress;
 if discrete
   tspan = 'discrete';
 end
@@ -42,6 +47,23 @@ case 'isotropic'
   %let the basis of the last derivative be negative
   Csensval(:,:,end) = -Csensval(:,:,end);
   params.Csensval = Csensval;
+case 'isotropic_cutoff'
+  %use a cutoff value beyond which C is zero, below that, Legendre polynomials are used
+  %NB: we use |k| as the argument of Legenre polynomials
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2);
+  p = custom_Legendre(1,[0,cutoff]);
+  if Nmu>0
+    %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
+    Csensval = feval(p.sens,k,ones(1,NC+1));
+    Csensval(:,:,1) = [];
+  else
+    Csensval = feval(p.sens,k,ones(1,NC));
+  end
+  mask = 1*(k<=cutoff);
+  params.Csensval = Csensval .* mask;
 case 'isotropic_CmE'
   %constant minus exponential
   NC = kernelSize;
@@ -132,10 +154,10 @@ case 'IP'
 case 'sens'
   loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx));
   lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx),dy);
-  [~,~,~,x_opt,exitflag,fval] = IP(tdata,ydata,x_guess,meta,params, ...
+  [~,~,x_opt,exitflag,fval] = IP(tdata,ydata,x_guess,meta,params, ...
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
   [],loss,lossHess, ...
-  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'discrete',discrete);
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize,suppress),'discrete',discrete);
 end
 
 if nargout > 3
@@ -159,7 +181,10 @@ end
 
 end
 
-function params = assign(name,xparam,params,Cspace,kernelSize)
+function params = assign(name,xparam,params,Cspace,kernelSize,suppress)
+  if nargin>5 && ismember(name,suppress)
+    return;
+  end
   switch name
   case 'mu'
     params.(name).params = xparam;
@@ -179,7 +204,7 @@ function params = assign(name,xparam,params,Cspace,kernelSize)
     %Cspace = isotropic, C(k) = a1 + a2*k^2 + a3*k^4 + ...
     %Cspace = FD, C = a1 - a2*nabla + a3*nabla^2 + ...
     switch Cspace
-    case {'isotropic','FD'}
+    case {'isotropic','FD','isotropic_cutoff'}
       coeff(1,1,:) = xparam;
       params.C = sum(params.Csensval .* coeff,3);
       params.Cfunc.params = xparam;
