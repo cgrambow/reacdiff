@@ -1,7 +1,8 @@
 function [x_opt,fval,exitflag,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,varargin)
 ps = inputParser;
 addParameter(ps,'mode','IP'); %IP, eval, pp (walks through the function without eval or IP)
-%set eval = true to only do the forward solve and return
+%set mode = 'eval' to only do the forward solve and return the solution as x_opt, fval and exitflag will be empty
+%set mode = 'sens' to perform sensitivity analysis at x_guess, x_opt, fval, exitflag are hessian, hessian_t (hessian at eqch time step), and dy, respectively
 addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
@@ -128,6 +129,13 @@ case 'IP'
   loss,lossHess, ...
   @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'discrete',discrete), ...
   x_guess, options);
+case 'sens'
+  loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx));
+  lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx),dy);
+  [~,~,~,x_opt,exitflag,fval] = IP(tdata,ydata,x_guess,meta,params, ...
+  @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan,ybound), ...
+  [],loss,lossHess, ...
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize),'discrete',discrete);
 end
 
 if nargout > 3
