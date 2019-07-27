@@ -6,11 +6,11 @@ addParameter(ps,'mode','IP'); %IP, eval, pp (walks through the function without 
 addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
-addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1)); %number of parameters for mu, must be odd
+addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1) || (x==0)); %number of parameters for mu, must be odd
 addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to be positive (exponentiated)
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
-addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_cutoff
+addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_*_cutoff/scale (cutoff or scale value)
 addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
 ps.CaseSensitive = false;
@@ -47,23 +47,45 @@ case 'isotropic'
   %let the basis of the last derivative be negative
   Csensval(:,:,end) = -Csensval(:,:,end);
   params.Csensval = Csensval;
-case 'isotropic_cutoff'
-  %use a cutoff value beyond which C is zero, below that, Legendre polynomials are used
-  %NB: we use |k| as the argument of Legenre polynomials
+case 'isotropic_cos_cutoff'
   NC = kernelSize;
   meta.C.exp = false;
   [k2,~] = formk(params.N,params.L);
-  k = sqrt(k2);
-  p = custom_Legendre(1,[0,cutoff]);
+  k = sqrt(k2)/cutoff;
+  %use cos((n+1/2)*pi*k/cutoff)
+  Csensval = ones(size(k,1),size(k,2),NC);
+  if Nmu > 0
+    for i = 1:NC
+      Csensval(:,:,i) = cos((i-1/2)*pi*k);
+    end
+  else
+    for i = 2:NC
+      Csensval(:,:,i) = cos((i-3/2)*pi*k);
+    end
+  end
+  mask = 1*(k<=1);
+  params.Csensval = Csensval .* mask;
+case {'isotropic_poly_cutoff','isotropic_poly_scale'}
+  %NB: we use |k| as the argument of Legenre polynomials
+  %scale k by cutoff, if using poly_cutoff, beyond cutoff, C is set to zero.
+  %Legendre polynomial on [0,1]. Consider using even polynomials.
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2)/cutoff;
   if Nmu>0
     %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
-    Csensval = feval(p.sens,k,ones(1,NC+1));
+    Csensval = legendrepoly(k,NC+1,[],1);
     Csensval(:,:,1) = [];
+    Csensval = Csensval-1;
   else
-    Csensval = feval(p.sens,k,ones(1,NC));
+    Csensval = legendrepoly(k,NC,[],1);
+    Csensval(:,:,2:end) = Csensval(:,:,2:end)-1;
   end
-  mask = 1*(k<=cutoff);
-  params.Csensval = Csensval .* mask;
+  if isequal(Cspace,'isotropic_poly_cutoff')
+    Csensval = Csensval .* mask;
+  end
+  params.Csensval = Csensval;
 case 'isotropic_CmE'
   %constant minus exponential
   NC = kernelSize;
@@ -204,10 +226,6 @@ function params = assign(name,xparam,params,Cspace,kernelSize,suppress)
     %Cspace = isotropic, C(k) = a1 + a2*k^2 + a3*k^4 + ...
     %Cspace = FD, C = a1 - a2*nabla + a3*nabla^2 + ...
     switch Cspace
-    case {'isotropic','FD','isotropic_cutoff'}
-      coeff(1,1,:) = xparam;
-      params.C = sum(params.Csensval .* coeff,3);
-      params.Cfunc.params = xparam;
     case 'isotropic_CmE'
       params.C = params.Cfunc.func(xparam);
       params.Csensval = params.Cfunc.sens(xparam);
@@ -236,6 +254,10 @@ function params = assign(name,xparam,params,Cspace,kernelSize,suppress)
       case 'real'
         params.C = psf2otf(C, params.N);
       end
+    otherwise
+      coeff(1,1,:) = xparam;
+      params.C = sum(params.Csensval .* coeff,3);
+      params.Cfunc.params = xparam;
     end
   end
 end
