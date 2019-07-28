@@ -90,9 +90,6 @@ case {'isotropic_poly_cutoff','isotropic_poly_scale'}
   end
   if Nmu>0
     Csensval(:,:,1) = [];
-    Csensval = Csensval-1;
-  else
-    Csensval(:,:,2:end) = Csensval(:,:,2:end)-1;
   end
   if isequal(Cspace,'isotropic_poly_cutoff')
     Csensval = Csensval .* (1*(k<=1));
