@@ -11,6 +11,7 @@ addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to b
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
 addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_*_cutoff/scale (cutoff or scale value)
+addParameter(ps,'isotropic_even',false); %set to true if even polynomials are used (Cspace = isotropic_poly_*)
 addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
 ps.CaseSensitive = false;
@@ -20,6 +21,7 @@ mode = ps.Results.mode;
 Nmu = ps.Results.Nmu;
 mu_positive = ps.Results.mu_positive;
 discrete = ps.Results.discrete;
+isotropic_even = ps.Results.isotropic_even;
 cutoff = ps.Results.cutoff;
 suppress = ps.Results.assign_suppress;
 if discrete
@@ -75,15 +77,25 @@ case {'isotropic_poly_cutoff','isotropic_poly_scale'}
   k = sqrt(k2)/cutoff;
   if Nmu>0
     %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
-    Csensval = legendrepoly(k,NC+1,[],1);
+    nval = NC+1;
+  else
+    nval = NC;
+  end
+  if isotropic_even
+    nval = 2*nval-1;
+  end
+  Csensval = legendrepoly(k,nval,[],1);
+  if isotropic_even
+    Csensval(:,:,2*(1:floor(nval/2))) = [];
+  end
+  if Nmu>0
     Csensval(:,:,1) = [];
     Csensval = Csensval-1;
   else
-    Csensval = legendrepoly(k,NC,[],1);
     Csensval(:,:,2:end) = Csensval(:,:,2:end)-1;
   end
   if isequal(Cspace,'isotropic_poly_cutoff')
-    Csensval = Csensval .* mask;
+    Csensval = Csensval .* (1*(k<=1));
   end
   params.Csensval = Csensval;
 case 'isotropic_CmE'
