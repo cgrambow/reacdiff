@@ -98,6 +98,13 @@ case {'isotropic_poly_cutoff','isotropic_poly_scale'}
     Csensval = Csensval .* (1*(k<=1));
   end
   params.Csensval = Csensval;
+case 'isotropic_hermite_scale'
+  %|k| scaled by cutoff
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2)/cutoff;
+  params.Csensval = hermitefunction(k,NC,[],1);
 case 'isotropic_CmE'
   %constant minus exponential
   NC = kernelSize;
