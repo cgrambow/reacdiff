@@ -1,7 +1,7 @@
-%based on DDFT_nucleation11
+%based on DDFT_nucleation15
 %use a different time range
 addpath('../../CHACR/GIP')
-runoptim = false;
+runoptim = true;
 
 tic;
 L = [5,5];
@@ -41,18 +41,19 @@ tdata = t2(ind);
 ydata = y2(ind,:);
 toc
 
-kernelSize = 2;
-Cspace = 'isotropic';
+
+kernelSize = 4;
+Cspace = 'isotropic_cutoff';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
-resultpath = [largedatapath,'DDFT_nucleation13.mat'];
+resultpath = [largedatapath,'DDFT_nucleation25.mat'];
 
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
 options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region');
 
 if runoptim
-  x_guess = [0,-10,0.5,0,-3];
-  [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'tspan',300);
+  x_guess = [0,0,0,0,0.3,0,-3];
+  [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'tspan',300,'cutoff',30);
 else
   modelfunc.C = @(k) exp(-(k-k0).^2/(2*alpha^2))*0.95;
   modelfunc.mu = @(x) x - x.^2/2 + x.^3/3;
