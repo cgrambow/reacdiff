@@ -13,6 +13,7 @@ function history_production(resultpath,ind,modelfunc,arg,tdata,ydata,params,kern
 %If there is more than one functions to plot, modelfunc should be a struct, whose field names match those in the meta. If there is only one function to plot, modelfunc can either be a struct or simply a function handle
 %the result file can also contain y, the solution to the PDE at each step, in which case we don't need to recompute
 %IP_DDFT_arg, varargin for IP_DDFT
+addpath('../../CHACR')
 addpath('../../CHACR/IP')
 ps = inputParser;
 addParameter(ps,'label',true);
@@ -112,7 +113,7 @@ for i = 1:numIter
       ax.YTick = [];
       ax.Box = 'off';
     else
-      if isequal(name,'C') && ismember(Cspace,{'isotropic','isotropic_CmE'})
+      if isequal(name,'C') && ~isempty(regexp(Cspace,'isotropic*'))
         customfunc = pp.params.Cfunc.func;
         customparams = pp.params.Cfunc.params;
         yoffset = offset;
@@ -121,13 +122,15 @@ for i = 1:numIter
         customparams = pp.params.(name).params;
         yoffset = - customfunc(0,customparams);
       end
-      if j==1
-        yyaxis left
-      elseif j==2
-        yyaxis right
+      if numFunc>1
+        if j==1
+          yyaxis left
+        elseif j==2
+          yyaxis right
+        end
       end
       argj = arg.(name);
-      if isequal(name,'C') && ismember(Cspace,{'isotropic','isotropic_CmE'})
+      if isequal(name,'C') && ~isempty(regexp(Cspace,'isotropic*'))
         xscale = ps.k0;
       else
         xscale = 1;
