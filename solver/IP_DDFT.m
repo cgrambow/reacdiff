@@ -108,6 +108,13 @@ case 'isotropic_hermite_scale'
   [k2,~] = formk(params.N,params.L);
   k = sqrt(k2)/cutoff;
   params.Csensval = hermitefunction(k,NC,[],1);
+case 'isotropic_laguerre_scale'
+  %|k| scaled by cutoff
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2)/cutoff;
+  params.Csensval = laguerrepoly(k,NC,[],0,1) .* exp(-k/2);
 case 'isotropic_CmE'
   %constant minus exponential
   NC = kernelSize;
