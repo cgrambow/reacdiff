@@ -10,7 +10,7 @@ addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1) || (x==0)); %number of parameters for
 addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to be positive (exponentiated)
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
-addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_*_cutoff/scale (cutoff or scale value), optional for Cspace = isotropic
+addParameter(ps,'cutoff',1); %used by Cspace = isotropic_*
 addParameter(ps,'isotropic_even',false); %set to true if even polynomials are used (Cspace = isotropic_poly_*)
 addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
@@ -38,9 +38,7 @@ case 'isotropic'
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
   [k2,~] = formk(params.N,params.L);
-  if ~isempty(cutoff)
-    k2 = k2/cutoff^2;
-  end
+  k2 = k2/cutoff^2;
   p = custom_Poly;
   if Nmu>0
     %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
@@ -120,6 +118,7 @@ case 'isotropic_CmE'
   NC = kernelSize;
   meta.C.exp = false;
   [k2,~] = formk(params.N,params.L);
+  k2 = k2/cutoff^2;
   if isempty(ps.Results.bound)
     bound = [0,max(k2(:))];
   else
@@ -212,19 +211,30 @@ case 'sens'
 end
 
 if nargout > 3
-  %post processing
-  if isequal(Cspace,'isotropic')
+  %post processing, isotropic_*_cutoff not yet supported
+  switch Cspace
+  case 'isotropic'
     if Nmu>0
-      params.Cfunc.func = @(x,coeff) p.func(x.^2,[0,coeff(1:end-1),-coeff(end)]);
+      params.Cfunc.func = @(x,coeff) p.func((x/cutoff).^2,[0,coeff(1:end-1),-coeff(end)]);
     else
-      params.Cfunc.func = @(x,coeff) p.func(x.^2,[coeff(1:end-1),-coeff(end)]);
+      params.Cfunc.func = @(x,coeff) p.func((x/cutoff).^2,[coeff(1:end-1),-coeff(end)]);
     end
-  elseif isequal(Cspace,'isotropic_CmE')
+  case 'isotropic_CmE'
     if Nmu>0
-      params.Cfunc.func = @(x,coeff) -expleg.func(x.^2,coeff);
+      params.Cfunc.func = @(x,coeff) -expleg.func((x/cutoff).^2,coeff);
     else
-      params.Cfunc.func = @(x,coeff) coeff(1)-expleg.func(x.^2,coeff(2:end));
+      params.Cfunc.func = @(x,coeff) coeff(1)-expleg.func((x/cutoff).^2,coeff(2:end));
     end
+  case 'isotropic_poly_scale'
+    if Nmu>0
+      params.Cfunc.func = @(x,coeff) legendrepoly(x/cutoff,[],[0,coeff]);
+    else
+      params.Cfunc.func = @(x,coeff) legendrepoly(x/cutoff,[],coeff);
+    end
+  case 'isotropic_hermite_scale'
+    params.Cfunc.func = @(x,coeff) hermitefunction(x/cutoff,[],coeff);
+  case 'isotropic_laguerre_scale'
+    params.Cfunc.func = @(x,coeff) laguerrepoly(x/cutoff,[],coeff) .* exp(-x/cutoff/2);
   end
   pp.params = params;
   pp.meta = meta;
