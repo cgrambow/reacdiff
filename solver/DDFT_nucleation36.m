@@ -42,8 +42,9 @@ ydata = y2(ind,:);
 toc
 
 
-kernelSize = 50;
+kernelSize = 150;
 Cspace = 'isotropic_hermite_scale';
+%note 100 is about where hermitefunction still approaches zero as k approaches kmax (N/L*pi)
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
 

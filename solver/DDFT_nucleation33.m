@@ -52,6 +52,6 @@ resultpath = [largedatapath,'DDFT_nucleation33.mat'];
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
 options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region','MaxFunctionEvaluations',10000,'MaxIterations',10000);
 
-x_guess = [zeros(1,kernelSize),0.5,0,0];
+x_guess = [zeros(1,kernelSize),0.5,0,-4];
 
-[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',k0,'mu_positive',false);
+[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',k0);

@@ -36,7 +36,7 @@ y0 = roi.*y0 + (1-roi)*rho;
 tspan2 = linspace(0,2.5,100);
 [t2,y2] = solver_DDFT(tspan2,y0,params);
 
-ind = 1:100;
+ind = 1:20:100;
 tdata = t2(ind);
 ydata = y2(ind,:);
 toc
