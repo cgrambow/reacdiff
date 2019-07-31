@@ -10,7 +10,7 @@ addParameter(ps,'Nmu',0,@(x) (mod(x,2)==1) || (x==0)); %number of parameters for
 addParameter(ps,'mu_positive',true); %set the higher order polynomial of mu to be positive (exponentiated)
 addParameter(ps,'D',false); %setting this to true turns on optimizing over D
 addParameter(ps,'discrete',false);
-addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_*_cutoff/scale (cutoff or scale value)
+addParameter(ps,'cutoff',[]); %must be provided if Cspace = isotropic_*_cutoff/scale (cutoff or scale value), optional for Cspace = isotropic
 addParameter(ps,'isotropic_even',false); %set to true if even polynomials are used (Cspace = isotropic_poly_*)
 addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
@@ -38,6 +38,9 @@ case 'isotropic'
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
   [k2,~] = formk(params.N,params.L);
+  if ~isempty(cutoff)
+    k2 = k2/cutoff^2;
+  end
   p = custom_Poly;
   if Nmu>0
     %throw the constant term to mu, note that kernelSize is now the number of non-constant polynomials
