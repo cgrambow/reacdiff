@@ -50,7 +50,7 @@ case 'isotropic'
   %let the basis of the last derivative be negative
   Csensval(:,:,end) = -Csensval(:,:,end);
   params.Csensval = Csensval;
-case 'isotropic_cos_cutoff'
+case {'isotropic_cos_cutoff','isotropic_cos_scale'}
   NC = kernelSize;
   meta.C.exp = false;
   [k2,~] = formk(params.N,params.L);
@@ -65,6 +65,29 @@ case 'isotropic_cos_cutoff'
     for i = 2:NC
       Csensval(:,:,i) = cos((i-3/2)*pi*k);
     end
+  end
+  mask = 1*(k<=1);
+  params.Csensval = Csensval .* mask;
+case {'isotropic_fourier_scale'}
+  NC = kernelSize;
+  meta.C.exp = false;
+  [k2,~] = formk(params.N,params.L);
+  k = sqrt(k2)/cutoff;
+  Csensval = ones(size(k,1),size(k,2),NC);
+  if Nmu > 0
+    Ncos = ceil((NC-1)/2);
+    Nsin = NC-1-Ncos;
+    NcosInd(1,1,:) = 1:Ncos;
+    NsinInd(1,1,:) = 1:Nsin;
+    Csensval(:,:,2:2:(2*Ncos)) = cos(NcosInd*pi*k);
+    Csensval(:,:,3:2:(2*Nsin+1)) = sin(NsinInd*pi*k);
+  else
+    Ncos = ceil(NC/2);
+    Nsin = NC-Ncos;
+    NcosInd(1,1,:) = 1:Ncos;
+    NsinInd(1,1,:) = 1:Nsin;
+    Csensval(:,:,1:2:(2*Ncos-1)) = cos(NcosInd*pi*k);
+    Csensval(:,:,2:2:(2*Nsin)) = sin(NsinInd*pi*k);
   end
   mask = 1*(k<=1);
   params.Csensval = Csensval .* mask;
