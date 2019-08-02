@@ -1,5 +1,6 @@
-%based on DDFT_nucleation29
-%5 snapshots. kernelSize = 10
+%based on DDFT_nucleation30
+%5 snapshots. kernelSize = 10. Cspace=isotropic_laguerre_scale
+%failed
 addpath('../../CHACR/GIP')
 runoptim = true;
 
@@ -42,17 +43,16 @@ ydata = y2(ind,:);
 toc
 
 
-kernelSize = 300;
-Cspace = 'isotropic_hermite_scale';
-%note 100 is about where hermitefunction still approaches zero as k approaches kmax (N/L*pi)
+kernelSize = 6;
+Cspace = 'isotropic_laguerre_scale';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
 
-resultpath = [largedatapath,'DDFT_nucleation36.mat'];
+resultpath = [largedatapath,'DDFT_nucleation35.mat'];
 
-if runoptim
-  [hessian,hessian_t,dy] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],[],'discrete',true,'cutoff',k0,'assign_suppress',{'C'},'mode','sens');
-  save(resultpath,'hessian','hessian_t','dy');
-else
-  load(resultpath);
-end
+options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
+options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region','MaxFunctionEvaluations',10000,'MaxIterations',10000);
+
+x_guess = zeros(1,kernelSize);
+
+[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',0,'discrete',true,'cutoff',k0);

@@ -43,15 +43,15 @@ toc
 
 
 kernelSize = 300;
-Cspace = 'isotropic_hermite_scale';
-%note 100 is about where hermitefunction still approaches zero as k approaches kmax (N/L*pi)
+Cspace = 'isotropic_fourier_scale';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
 
-resultpath = [largedatapath,'DDFT_nucleation36.mat'];
+resultpath = [largedatapath,'DDFT_nucleation37.mat'];
 
+kmax = floor(params.N(1)/2+1)/params.L(1)*2*pi;
 if runoptim
-  [hessian,hessian_t,dy] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],[],'discrete',true,'cutoff',k0,'assign_suppress',{'C'},'mode','sens');
+  [hessian,hessian_t,dy] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],[],'discrete',true,'cutoff',kmax,'assign_suppress',{'C'},'mode','sens');
   save(resultpath,'hessian','hessian_t','dy');
 else
   load(resultpath);
