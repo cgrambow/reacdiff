@@ -79,15 +79,15 @@ case {'isotropic_fourier_scale'}
     Nsin = NC-1-Ncos;
     NcosInd(1,1,:) = 1:Ncos;
     NsinInd(1,1,:) = 1:Nsin;
-    Csensval(:,:,2:2:(2*Ncos)) = cos(NcosInd*pi*k);
-    Csensval(:,:,3:2:(2*Nsin+1)) = sin(NsinInd*pi*k);
+    Csensval(:,:,2:2:(2*Ncos)) = cos(NcosInd*pi.*k);
+    Csensval(:,:,3:2:(2*Nsin+1)) = sin(NsinInd*pi.*k);
   else
     Ncos = ceil(NC/2);
     Nsin = NC-Ncos;
     NcosInd(1,1,:) = 1:Ncos;
     NsinInd(1,1,:) = 1:Nsin;
-    Csensval(:,:,1:2:(2*Ncos-1)) = cos(NcosInd*pi*k);
-    Csensval(:,:,2:2:(2*Nsin)) = sin(NsinInd*pi*k);
+    Csensval(:,:,1:2:(2*Ncos-1)) = cos(NcosInd*pi.*k);
+    Csensval(:,:,2:2:(2*Nsin)) = sin(NsinInd*pi.*k);
   end
   mask = 1*(k<=1);
   params.Csensval = Csensval .* mask;
