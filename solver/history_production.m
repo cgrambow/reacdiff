@@ -83,94 +83,11 @@ for i = 1:numIter
     [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval',ps.IP_DDFT_arg{:});
     visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
   end
-  meta = pp.meta;
-  names = fieldnames(meta);
-  namesflag = ismember({'mu','C'},names);
-  numFunc = numel(names);
+
   subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
-  if all(namesflag)
-    %calculate current gradient of mu at x=0
-    grad0 = customizeFunGrad(pp.params,'mu','grad',0);
-    %gradient of the first order basis function of mu
-    [~,grad1] = feval(pp.params.mu.func,0,1);
-    %set the gradient of mu at x=0 to be 1. The offset is
-    offset = (ps.dmu_at_0-grad0)/grad1;
-    pp.params.mu.params(1) = pp.params.mu.params(1) + offset;
-  else
-    offset = 0;
-  end
-  for j=1:numFunc
-    name = names{j};
-    if ismember(name,{'D','extdata'})
-      continue;
-    end
-    if isequal(name,'C') && ismember(Cspace,{'k','real'})
-      imagesc(pp.params.C-offset);
-      caxis([0,1]);
-      ax = gca;
-      axis(ax,'image');
-      ax.XTick = [];
-      ax.YTick = [];
-      ax.Box = 'off';
-    else
-      if isequal(name,'C') && ~isempty(regexp(Cspace,'isotropic*'))
-        customfunc = pp.params.Cfunc.func;
-        customparams = pp.params.Cfunc.params;
-        yoffset = offset;
-      elseif isequal(name,'mu')
-        customfunc = pp.params.(name).func;
-        customparams = pp.params.(name).params;
-        yoffset = - customfunc(0,customparams);
-      end
-      if numFunc>1
-        if j==1
-          yyaxis left
-        elseif j==2
-          yyaxis right
-        end
-      end
-      argj = arg.(name);
-      if isequal(name,'C') && ~isempty(regexp(Cspace,'isotropic*'))
-        xscale = ps.k0;
-      else
-        xscale = 1;
-      end
-      plot(argj,modelfunc.(name)(argj*xscale),'--','LineWidth',2);
-      ax = gca;
-      ylimtemp = ax.YLim;
-      hold on;
-      plot(argj,customfunc(argj*xscale,customparams)+yoffset,'LineWidth',2);
-      if isempty(ps.yyaxisLim)
-        ax.YLim = ylimtemp;
-      else
-        ax.YLim = ps.yyaxisLim(j,:);
-      end
-      if ~isempty(ps.xlim)
-        ax.XLim = ps.xlim;
-      end
-      axis square
-      if i~=numIter
-        ax.XTick = [];
-      else
-        if namesflag(1) && ~namesflag(2)
-          xl = '\psi';
-        elseif ~namesflag(1) && namesflag(2)
-          xl = 'k/k_0';
-        elseif all(namesflag)
-          xl = '\psi or k/k_0';
-        end
-        xlabel(xl);
-        if ~isempty(ps.legend)
-          legend(ps.legend{:});
-          legend('boxoff');
-        end
-      end
-    end
-    if ps.label && j==1
-      text(0.1,1.2,['Iter. ',num2str(ind(i)-1)],'Units','normalized','HorizontalAlignment',ps.labelHorizontalAlignment);
-    end
-  end
+  history_func(ind(i),modelfunc,arg,Cspace,pp,ps);
 end
+
 if isfield(meta,'C') && ismember(Cspace,{'k','real'}) && ~isempty(ps.CtruthSubplot)
   axC = subtightplot(rowtotal,columntotal,columntotal*(ps.CtruthSubplot(1)-1)+ps.CtruthSubplot(2),stparg{:});
   CC = params.C;
