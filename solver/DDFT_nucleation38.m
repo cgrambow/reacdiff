@@ -1,6 +1,6 @@
 %based on DDFT_nucleation37, sensitivity analysis, use Laguerre
 addpath('../../CHACR/GIP')
-runoptim = true;
+runoptim = false;
 
 tic;
 L = [5,5];
@@ -53,4 +53,11 @@ if runoptim
   save(resultpath,'hessian','hessian_t','dy');
 else
   load(resultpath);
+  numBasis = 10;
+  x = linspace(0,10,1000)';
+  psi = laguerrepoly(x,numBasis) .* exp(-x/2);
+  C = psi * (hessian(1:numBasis,1:numBasis)\psi');
+  dev = diag(C);
+  y = exp(-(x-k0).^2/(2*alpha^2))*0.95;
+  boundedline(x,y,dev);
 end

@@ -55,4 +55,11 @@ if runoptim
   save(resultpath,'hessian','hessian_t','dy');
 else
   load(resultpath);
+  numBasis = 100;
+  x = linspace(0,10,1000)';
+  psi = hermitefunction(x,numBasis);
+  C = psi * (hessian(1:numBasis,1:numBasis)\psi');
+  dev = diag(C);
+  y = exp(-(x-k0).^2/(2*alpha^2))*0.95;
+  boundedline(x,y,dev);
 end
