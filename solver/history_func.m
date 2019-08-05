@@ -95,11 +95,11 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
         ax.XTick = [];
       else
         if namesflag(1) && ~namesflag(2)
-          xl = '\psi';
+          xl = '\eta';
         elseif ~namesflag(1) && namesflag(2)
           xl = 'k/k_0';
         elseif all(namesflag)
-          xl = '\psi or k/k_0';
+          xl = '\eta or k/k_0';
         end
         xlabel(xl);
         if ~isempty(ps.legend)
