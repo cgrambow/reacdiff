@@ -34,6 +34,7 @@ addParameter(ps,'IP_DDFT_arg',{});
 addParameter(ps,'k0',1); %used to scale k
 addParameter(ps,'dmu_at_0',1); %when meta has both mu and C, rescale so that dmu/dx at 0 has this value
 addParameter(ps,'mu_at_0',0); %offset mu so that mu at 0 has this value
+addParameter(ps,'targetLineStyle','-.');
 parse(ps,varargin{:});
 ps = ps.Results;
 

@@ -77,7 +77,7 @@ for i = 1:length(ind)
   else
     text(0.01,1.55,'(b) Quartic approximation','Units','normalized','HorizontalAlignment','left');
     legend({'$\hat{C_2}(k)$ (truth)','$\hat{C_2}(k)$','$\mu_h(\eta)$ (truth)','$\mu_h(\eta)$'},...
-    'Orientation','horizontal','Position',[0.225 0.025 0.7228 0.0533],'Interpreter','latex');
+    'Orientation','horizontal','Position',[0.10 0 0.8169 0.0374],'Interpreter','latex');
     legend('boxoff');
   end
 end
