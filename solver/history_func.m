@@ -14,6 +14,7 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
     addParameter(ps,'legend',[]);
     addParameter(ps,'label',true);
     addParameter(ps,'labelHorizontalAlignment','left');
+    addParameter(ps,'targetLineStyle','-.');
     parse(ps,varargin{:});
     ps = ps.Results;
   else
@@ -75,7 +76,7 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
       if numFunc==1
         ax.ColorOrderIndex = j;
       end
-      plot(argj,modelfunc.(name)(argj*xscale),'--','LineWidth',2);
+      plot(argj,modelfunc.(name)(argj*xscale),ps.targetLineStyle,'LineWidth',2);
       ylimtemp = ax.YLim;
       hold on;
       if numFunc==1
