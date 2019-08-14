@@ -110,9 +110,6 @@ for i = 1:length(ind)
   history_func(ind(i),modelfunc,arg,Cspace,pp,[],figprop{:});
   if i~=1
     xlabel([]);
-    yyaxis left
-    yticklabels([]);
-    yyaxis right
     yticklabels([]);
   else
     text(0.01,1.55,'(d) Hermite function basis function','Units','normalized','HorizontalAlignment','left');
