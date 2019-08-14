@@ -138,7 +138,7 @@ else
   options = odeset(options,'Jacobian',@(t,y) jacobian(t,sol,params), ...
   'mass', -speye(prod(params.N)),'MassSingular','yes','MStateDependence','none');
   moreoptions = moreodeset(moreoptions, ...
-  'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,sol,info), ...
+  'jacMult',@(xi,t,y,info) jacobian_mult(params,xi,t,sol,info,true), ...
   'pencil',@(xi,t,y,hinvGak,info) pencil(params,xi,t,sol,hinvGak,info,true), ...
   'KrylovDecomp',@(~,~,dfdy,hinvGak) KrylovDecomp(L,dfdy,hinvGak,true), ...
   'KrylovPrecon',@(x,L,U,hinvGak,~,~,~) KrylovPrecon(LK,params,x,L,U,hinvGak,true));
@@ -221,13 +221,12 @@ end
 function Pargs = KrylovDecomp(L,dfdy,hinvGak,adjoint)
   %here dfdy comes from Jacobian
   %L is the finite-difference Laplacian operator
-  if nargin>3 && adjoint
-    msign = -1;
-  else
-    msign = 1;
-  end
   n = length(L);
-  J = msign*speye(n) - hinvGak*L.*sparse(1:n,1:n,dfdy);
+  if nargin>3 && adjoint
+    J = -speye(n) - hinvGak*sparse(1:n,1:n,dfdy).*L;
+  else
+    J = speye(n) - hinvGak*L.*sparse(1:n,1:n,dfdy);
+  end
   [L,U] = ilu(J);
   Pargs = {L,U};
 end
@@ -248,10 +247,13 @@ function yy = KrylovPrecon(LK,params,x,L,U,hinvGak,adjoint)
   yy = U \ (L \ yy);
 end
 
-function yy = jacobian_mult(params,xi,t,y,info)
+function yy = jacobian_mult(params,xi,t,y,info,adjoint)
+  if nargin<6
+    adjoint = false;
+  end
   if isequal(info,'force')
-    yy = jacobian_mult(params,xi,t,y,[]);
-    yy = jacobian_mult(params,xi,t,y,yy);
+    yy = jacobian_mult(params,xi,t,y,[],adjoint);
+    yy = jacobian_mult(params,xi,t,y,yy,adjoint);
   elseif isempty(info)
     if isstruct(y)
       y = sol_interp(y,t);
@@ -263,10 +265,18 @@ function yy = jacobian_mult(params,xi,t,y,info)
     dx = params.dx;
     C = params.C;
     xi = reshape(xi,N(1),N(2),[]);
-    mu = info .* xi - ifft2(C .* fft2(xi), 'symmetric');
-    yy = 0;
-    for i = 1:length(N)
-      yy = yy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
+    if ~adjoint
+      mu = info .* xi - ifft2(C .* fft2(xi), 'symmetric');
+      yy = 0;
+      for i = 1:length(N)
+        yy = yy + (circshift(mu,1,i)+circshift(mu,-1,i)-2*mu)/dx(i)^2;
+      end
+    else
+      yy = 0;
+      for i = 1:length(N)
+        yy = yy + (circshift(xi,1,i)+circshift(xi,-1,i)-2*xi)/dx(i)^2;
+      end
+      yy = info .* yy - ifft2(C .* fft2(yy), 'symmetric');
     end
     yy = reshape(yy,prod(N),[]);
     yy = params.D * yy;
@@ -275,9 +285,9 @@ end
 
 function yy = ASA_mult(t,xi,sol,info,params,varargin)
   if isempty(info)
-    yy = jacobian_mult(params,[],t,sol,[]);
+    yy = jacobian_mult(params,[],t,sol,[],true);
   else
-    yy = jacobian_mult(params,xi,[],[],info);
+    yy = jacobian_mult(params,xi,[],[],info,true);
     if ~isempty(varargin)
       tdata = varargin{1};
       error = varargin{2};
@@ -295,12 +305,15 @@ function dy = ASA_eqn(t,y,sol,params,varargin)
 end
 
 function yy = pencil(params,xi,t,y,hinvGak,info,adjoint)
-  if nargin>6 && adjoint
+  if nargin < 7
+    adjoint = false;
+  end
+  if adjoint
     msign = -1;
   else
     msign = 1;
   end
-  yy = jacobian_mult(params,xi,t,y,info);
+  yy = jacobian_mult(params,xi,t,y,info,adjoint);
   if ~isempty(info)
     yy = msign*xi - hinvGak*yy;
   end
@@ -392,7 +405,7 @@ function [y0,yp0] = ASAinit(F0,discrete,params,t0,sol)
   yp0 = F0;
   if discrete
     y0 = yp0;
-    yp0 = jacobian_mult(params,y0,t0,sol,'force');
+    yp0 = jacobian_mult(params,y0,t0,sol,'force',true);
   end
 end
 
