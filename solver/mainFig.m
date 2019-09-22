@@ -65,7 +65,8 @@ arg.C = linspace(0,2,500);
 arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
 ind = [1,19,25,31,1797];
 for i = 1:length(ind)
-  subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
+  ax = subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
+  ax.Position(2) = ax.Position(2) + 0.01;
   [~,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','pp',IP_DDFT_arg{:});
   history_func(ind(i),modelfunc,arg,Cspace,pp,[],figprop{:});
   if i~=1
@@ -86,6 +87,9 @@ if ~exist('yhistory','var')
   [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(end,:),'mode','eval',IP_DDFT_arg{:});
 end
 h = visualize([],[],[],yhistory,'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[3,1],'subtightplot',stparg);
+for i = 1:length(h)
+  h(i).Position(2) = h(i).Position(2) - 0.01;
+end
 text(h(1),0.01,1.2,'(c) Quartic approximation result','Units','normalized','HorizontalAlignment','left');
 
 %fourth row: history of DDFT_nucleation30
@@ -119,5 +123,5 @@ f = gcf;
 set(findall(f,'-property','FontName'),'FontName','Arial');
 set(findall(f,'-property','FontWeight'),'FontWeight','normal');
 set(findall(f,'-property','FontSize'),'FontSize',12);
-f.Position = [680 298 560 680];
+f.Position = [680 321 560 657];
 % print(f,'C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\figure\DDFT_mainFig','-dtiff','-r400');
