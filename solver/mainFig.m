@@ -86,7 +86,22 @@ end
 if ~exist('yhistory','var')
   [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(end,:),'mode','eval',IP_DDFT_arg{:});
 end
-h = visualize([],[],[],yhistory,'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[3,1],'subtightplot',stparg);
+%highlight the difference between model and data in the last image
+Ntime = size(yhistory,1);
+for i = 1:Ntime
+  h(i) = subtightplot(rowtotal,columntotal,columntotal*2+i,stparg{:});
+  if i >= Ntime - 1
+    C = imfuse(mat2gray(reshape(yhistory(i,:),params.N),flip(clim)),mat2gray(reshape(ydata(i,:),params.N),flip(clim)),'Scaling','none');
+    C = mydecorrstretch(C,[1,0.2,0.2]);
+    imshow(C);
+  else
+    imshow(mat2gray(reshape(yhistory(i,:),params.N),flip(clim)));
+  end
+end
+%show all model plots (without difference)
+% h = visualize([],[],[],yhistory,'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[3,1],'subtightplot',stparg);
+%show difference between model and data only
+% h = visualize([],[],[],yhistory-ydata,'c',false,'ImageSize',params.N,'caxis','auto','GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[3,1],'subtightplot',stparg);
 for i = 1:length(h)
   h(i).Position(2) = h(i).Position(2) - 0.01;
 end
@@ -102,7 +117,7 @@ resultpath = [largedatapath,'DDFT_nucleation30'];
 varload = load(resultpath);
 history = varload.history;
 arg.C = linspace(Crange(1),Crange(2),500);
-ind = [1,11,16,21,36];
+ind = [1,4,11,26,35];
 for i = 1:length(ind)
   subtightplot(rowtotal,columntotal,columntotal*3+i,stparg{:});
   if i==length(ind)
