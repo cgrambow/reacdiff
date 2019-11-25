@@ -34,6 +34,10 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
     %set the gradient of mu at x=0 to be 1. The offset is
     offset = (ps.dmu_at_0-grad0)/grad1;
     pp.params.mu.params(1) = pp.params.mu.params(1) + offset;
+
+    % shift C2 such that C2(0) matches the truth
+    % offset = modelfunc.C(0) - customizeFunGrad(pp.params,'Cfunc','fun',0);
+    % pp.params.mu.params(1) = pp.params.mu.params(1) + offset/grad1;
   else
     offset = 0;
   end
