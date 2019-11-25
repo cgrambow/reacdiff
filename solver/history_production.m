@@ -16,6 +16,7 @@ function history_production(resultpath,ind,modelfunc,arg,tdata,ydata,params,kern
 addpath('../../CHACR')
 addpath('../../CHACR/IP')
 ps = inputParser;
+addParameter(ps,'xlabel','on');
 addParameter(ps,'label',true);
 addParameter(ps,'labelPosition','top');
 addParameter(ps,'labelxpos',0.1);
@@ -35,6 +36,7 @@ addParameter(ps,'k0',1); %used to scale k
 addParameter(ps,'dmu_at_0',1); %when meta has both mu and C, rescale so that dmu/dx at 0 has this value
 addParameter(ps,'mu_at_0',0); %offset mu so that mu at 0 has this value
 addParameter(ps,'targetLineStyle','-.');
+addParameter(ps,'showModelSolution',true); %plot the model solution at each iteration
 parse(ps,varargin{:});
 ps = ps.Results;
 
@@ -59,10 +61,15 @@ if isequal(frameindex,':')
 else
   column = length(frameindex);
 end
-rowtotal = numIter+1;
-columntotal = column;
-frameindex_model = frameindex;
-frameindex_model(frameindex==1) = []; %remove the initial condition
+if ps.showModelSolution
+  rowtotal = numIter+1;
+  columntotal = column;
+  frameindex_model = frameindex;
+  frameindex_model(frameindex==1) = []; %remove the initial condition
+else
+  rowtotal = ceil(numIter/column) + 1;
+  columntotal = column;
+end
 
 % 'color',[0.8500,0.3250,0.0980]
 stparg = {0.05,[0.05,0.08],0.05};
@@ -77,19 +84,26 @@ if ps.timeLabel
   text(0.1,1.5,'Data','Units','normalized','HorizontalAlignment',ps.labelHorizontalAlignment);
 end
 for i = 1:numIter
-  if isfield(varload,'y')
-    y = varload.y;
-    visualize([],[],[],y{ind(i)}(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
+  if ~ps.showModelSolution || (ps.showModelSolution && isfield(varload,'y'))
+    [~,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','pp',ps.IP_DDFT_arg{:});
+  end
+  if ps.showModelSolution
+    if isfield(varload,'y')
+      y = varload.y;
+      visualize([],[],[],y{ind(i)}(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
+    else
+      [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval',ps.IP_DDFT_arg{:});
+      visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
+    end
+    subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
   else
-    [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval',ps.IP_DDFT_arg{:});
-    visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
+    subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
   end
 
-  subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
   history_func(ind(i),modelfunc,arg,Cspace,pp,ps);
 end
 
-if isfield(meta,'C') && ismember(Cspace,{'k','real'}) && ~isempty(ps.CtruthSubplot)
+if ismember(Cspace,{'k','real'}) && ~isempty(ps.CtruthSubplot)
   axC = subtightplot(rowtotal,columntotal,columntotal*(ps.CtruthSubplot(1)-1)+ps.CtruthSubplot(2),stparg{:});
   CC = params.C;
   halfSize = (kernelSize-1)/2;
