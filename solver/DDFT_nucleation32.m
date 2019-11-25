@@ -1,7 +1,7 @@
 %based on DDFT_nucleation29
 %5 snapshots. optimize mu, kernelSize = 10
 addpath('../../CHACR/GIP')
-runoptim = true;
+runoptim = false;
 
 tic;
 L = [5,5];
@@ -54,4 +54,15 @@ options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-regio
 
 x_guess = [zeros(1,kernelSize),0.5,0,-3];
 
-[x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',k0);
+if runoptim
+  [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',k0);
+else
+  modelfunc.C = @(k) exp(-(k-k0).^2/(2*alpha^2))*0.95;
+  modelfunc.mu = @(x) x - x.^2/2 + x.^3/3;
+  Crange = [0,4];
+  arg.C = linspace(Crange(1),Crange(2),500);
+  arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
+  history_production(resultpath,[1,10,20,30,40,65],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,'IP_DDFT_arg',{'Nmu',3,'discrete',true,'cutoff',k0},'yyaxisLim',[-0.5,1.5;-1,1.2],'k0',k0,'xlim',Crange,'showModelSolution',false);
+  % f = gcf;
+  % f.Position = [680 337 522 641];
+end
