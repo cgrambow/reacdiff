@@ -40,8 +40,12 @@ addParameter(ps,'showModelSolution',true); %plot the model solution at each iter
 parse(ps,varargin{:});
 ps = ps.Results;
 
-varload = load(resultpath);
+varload = matfile(resultpath);
 history = varload.history;
+savey = isempty(who(varload,'y'));
+if savey
+  varload.Properties.Writable = true;
+end
 if isempty(ind)
   ind = 1:size(history,1);
 elseif isequal(ind,'end')
@@ -83,16 +87,24 @@ if ps.timeLabel
   axes(h(1));
   text(0.1,1.5,'Data','Units','normalized','HorizontalAlignment',ps.labelHorizontalAlignment);
 end
+
+if savey
+  y = {};
+else
+  y = varload.y;
+end
+
 for i = 1:numIter
   if ~ps.showModelSolution || (ps.showModelSolution && isfield(varload,'y'))
     [~,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','pp',ps.IP_DDFT_arg{:});
   end
   if ps.showModelSolution
-    if isfield(varload,'y')
+    if ~savey
       y = varload.y;
       visualize([],[],[],y{ind(i)}(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
     else
       [yhistory,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','eval',ps.IP_DDFT_arg{:});
+      y{ind(i)} = yhistory;
       visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
     end
     subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
@@ -120,6 +132,10 @@ end
 set(findall(gcf,'-property','FontName'),'FontName','Arial');
 set(findall(gcf,'-property','FontWeight'),'FontWeight','normal');
 set(findall(gcf,'-property','FontSize'),'FontSize',ps.FontSize);
+
+if savey
+  varload.y = y;
+end
 
 end
 
