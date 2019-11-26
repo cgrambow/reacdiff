@@ -1,7 +1,7 @@
 %based on DDFT_nucleation32
 %change x_guess(1) to 0.1
 addpath('../../CHACR/GIP')
-runoptim = true;
+runoptim = false;
 
 tic;
 L = [5,5];
@@ -63,7 +63,12 @@ else
   Crange = [0,4];
   arg.C = linspace(Crange(1),Crange(2),500);
   arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
-  history_production(resultpath,[1,10,20,30,40,58],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,'IP_DDFT_arg',{'Nmu',3,'discrete',true,'cutoff',k0},'yyaxisLim',[-0.5,1.5;-1,1.2],'k0',k0,'xlim',Crange,'showModelSolution',false);
-  % f = gcf;
-  % f.Position = [680 337 522 641];
+  history_production(resultpath,[1,11,36,58],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,...
+      'IP_DDFT_arg',{'Nmu',3,'discrete',true,'cutoff',k0},'yyaxisLim',[-0.5,1.5;-1,1.2],...
+      'k0',k0,'xlim',[min(ydata(:)),Crange(2)],'showModelSolution',true,...
+      'legend',{{'$\hat{C_2}(k)$ (truth)','$\hat{C_2}(k)$','$\mu_h(\eta)$ (truth)','$\mu_h(\eta)$'},...
+      'Orientation','horizontal','Position',[0.2051 0.001 0.7874 0.0566],'Interpreter','latex'},...
+      'FontSize',13,'stparg',{0.05,[0.1,0.08],[0.08,0.04]});
+  f = gcf;
+  f.Position = [680 368 588 610];
 end
