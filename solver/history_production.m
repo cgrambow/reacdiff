@@ -37,6 +37,7 @@ addParameter(ps,'dmu_at_0',1); %when meta has both mu and C, rescale so that dmu
 addParameter(ps,'mu_at_0',0); %offset mu so that mu at 0 has this value
 addParameter(ps,'targetLineStyle','-.');
 addParameter(ps,'showModelSolution',true); %plot the model solution at each iteration
+addParameter(ps,'stparg',{0.05,[0.05,0.08],0.05});  %argument for subtightplot
 parse(ps,varargin{:});
 ps = ps.Results;
 
@@ -76,7 +77,7 @@ else
 end
 
 % 'color',[0.8500,0.3250,0.0980]
-stparg = {0.05,[0.05,0.08],0.05};
+stparg = ps.stparg;
 figure;
 clim = [min(min(ydata(frameindex,:))),max(max(ydata(frameindex,:)))];
 h = visualize([],[],[],ydata(frameindex,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[1,1],'ColumnTotal',columntotal,'StarterInd',0,'subtightplot',stparg);
@@ -95,7 +96,7 @@ else
 end
 
 for i = 1:numIter
-  if ~ps.showModelSolution || (ps.showModelSolution && isfield(varload,'y'))
+  if ~ps.showModelSolution || (ps.showModelSolution && ~savey)
     [~,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','pp',ps.IP_DDFT_arg{:});
   end
   if ps.showModelSolution
@@ -107,12 +108,20 @@ for i = 1:numIter
       y{ind(i)} = yhistory;
       visualize([],[],[],yhistory(frameindex_model,:),'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[i+1,1],'ColumnTotal',columntotal,'StarterInd',i*columntotal+1,'subtightplot',stparg);
     end
-    subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
+    ax = subtightplot(rowtotal,columntotal,i*columntotal+1,stparg{:});
   else
-    subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
+    ax = subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
+  end
+
+
+  if (ps.showModelSolution && i==numIter) || (~ps.showModelSolution && i==1)
+    ps.xlabel = 'on';
+  else
+    ps.xlabel = [];
   end
 
   history_func(ind(i),modelfunc,arg,Cspace,pp,ps);
+
 end
 
 if ismember(Cspace,{'k','real'}) && ~isempty(ps.CtruthSubplot)
