@@ -43,13 +43,15 @@ rowtotal = 4;
 columntotal = 5;
 stparg = {0.05,[0.08,0.06],[0.07,0.03]};
 clim = [min(min(ydata(:))),max(max(ydata(:)))];
+figure;
 %first row: data
 h = visualize([],[],[],ydata,'c',false,'ImageSize',params.N,'caxis',clim,'GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[1,1],'subtightplot',stparg);
 for j = 1:length(h)
   title(h(j),['t = ',num2str(tdata(j),2)]);
+  h(j).Position(2) = h(j).Position(2) + 0.02;
 end
 axes(h(1));
-text(0.01,1.55,'(a) Data','Units','normalized','HorizontalAlignment','left');
+text(0.01,1.46,'(a) Data','Units','normalized','HorizontalAlignment','left');
 %second row: history of DDFT_nucleation23
 kernelSize = 2;
 Cspace = 'isotropic';
@@ -66,7 +68,7 @@ arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
 ind = [1,19,25,31,1797];
 for i = 1:length(ind)
   ax = subtightplot(rowtotal,columntotal,columntotal+i,stparg{:});
-  ax.Position(2) = ax.Position(2) + 0.01;
+  ax.Position(2) = ax.Position(2) + 0.025;
   [~,~,~,pp] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],history(ind(i),:),'mode','pp',IP_DDFT_arg{:});
   history_func(ind(i),modelfunc,arg,Cspace,pp,[],figprop{:});
   if i~=1
@@ -76,7 +78,7 @@ for i = 1:length(ind)
     yyaxis right
     yticklabels([]);
   else
-    text(0.01,1.55,'(b) Quartic approximation','Units','normalized','HorizontalAlignment','left');
+    text(0.01,1.53,'(b) Quartic approximation','Units','normalized','HorizontalAlignment','left');
     legend({'$\hat{C_2}(k)$ (truth)','$\hat{C_2}(k)$','$\mu_h(\eta)$ (truth)','$\mu_h(\eta)$'},...
     'Orientation','horizontal','Position',[0.10 0 0.8169 0.0374],'Interpreter','latex');
     legend('boxoff');
@@ -103,7 +105,7 @@ end
 %show difference between model and data only
 % h = visualize([],[],[],yhistory-ydata,'c',false,'ImageSize',params.N,'caxis','auto','GridSize',[1,NaN],'OuterGridSize',[rowtotal,1],'OuterSubplot',[3,1],'subtightplot',stparg);
 for i = 1:length(h)
-  h(i).Position(2) = h(i).Position(2) - 0.01;
+  h(i).Position(2) = h(i).Position(2) - 0;
 end
 text(h(1),0.01,1.2,'(c) Quartic approximation result','Units','normalized','HorizontalAlignment','left');
 
@@ -119,7 +121,8 @@ history = varload.history;
 arg.C = linspace(Crange(1),Crange(2),500);
 ind = [1,4,11,26,35];
 for i = 1:length(ind)
-  subtightplot(rowtotal,columntotal,columntotal*3+i,stparg{:});
+  ax = subtightplot(rowtotal,columntotal,columntotal*3+i,stparg{:});
+  ax.Position(2) = ax.Position(2) + 0.01;
   if i==length(ind)
     DDFT_nucleation36;
     delete(hl);
@@ -131,12 +134,12 @@ for i = 1:length(ind)
     xlabel([]);
     yticklabels([]);
   else
-    text(0.01,1.55,'(d) Hermite function basis function','Units','normalized','HorizontalAlignment','left');
+    text(0.01,1.54,'(d) Hermite function basis function','Units','normalized','HorizontalAlignment','left');
   end
 end
 f = gcf;
 set(findall(f,'-property','FontName'),'FontName','Arial');
 set(findall(f,'-property','FontWeight'),'FontWeight','normal');
-set(findall(f,'-property','FontSize'),'FontSize',12);
-f.Position = [680 321 560 657];
+set(findall(f,'-property','FontSize'),'FontSize',13);
+f.Position = [680 321 588 657];
 % print(f,'C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\figure\DDFT_mainFig','-dtiff','-r400');
