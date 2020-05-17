@@ -14,6 +14,9 @@ addParameter(ps,'cutoff',1); %used by Cspace = isotropic_*
 addParameter(ps,'isotropic_even',false); %set to true if even polynomials are used (Cspace = isotropic_poly_*)
 addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
+
+%Cspace:
+%another option 'user', user-defined Csensval, in which case Csensval must be provided in params
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
@@ -161,6 +164,8 @@ case 'FD'
   meta.C.exp = false(1,NC);
   meta.C.exp(end) = true;
   params = FD2otf(NC,params);
+case 'user'
+  meta.C.exp = false;
 otherwise
   NC = floor((prod(kernelSize)+1)/2);
   params.Csens = @(y,i) Csens_ASA(y,i,Cspace,kernelSize);
