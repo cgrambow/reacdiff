@@ -3,6 +3,7 @@ ps = inputParser;
 addParameter(ps,'mode','IP'); %IP, eval, pp (walks through the function without eval or IP)
 %set mode = 'eval' to only do the forward solve and return the solution as x_opt, fval and exitflag will be empty
 %set mode = 'sens' to perform sensitivity analysis at x_guess, x_opt, fval, exitflag are hessian, hessian_t (hessian at eqch time step), and dy, respectively
+% set mode = 'fgh' to output {fval, grad and hess}
 addParameter(ps,'tspan',100);
 %set tspan to a positive integer or 'sol' to specify the number of time points returned for solution history. Inactive and automatically set to 'discrete' if discrete = true
 addParameter(ps,'bound',[]); %this is more Cspace = isotropic_CmE
@@ -16,7 +17,7 @@ addParameter(ps,'assign_suppress',{});
 %when mode='sens', use this to suppress the reassignment of certain parameters, however parameters of interest is still stored in meta. Be careful, this only works for things whose senstivity doesn't depend on the parameters themselves
 
 %Cspace:
-%another option 'user', user-defined Csensval, in which case Csensval must be provided in params
+%another option 'user', user-defined Csensval, in which case Csensval must be provided in params, NC=kernelSize, meta.C.exp=false
 ps.CaseSensitive = false;
 parse(ps,varargin{:});
 tspan = ps.Results.tspan;
@@ -165,6 +166,7 @@ case 'FD'
   meta.C.exp(end) = true;
   params = FD2otf(NC,params);
 case 'user'
+  NC = kernelSize;
   meta.C.exp = false;
 otherwise
   NC = floor((prod(kernelSize)+1)/2);
@@ -215,6 +217,18 @@ case 'eval'
   forwardHandle, [], [], [], assignHandle,'eval',true);
   fval = [];
   exitflag = [];
+case 'fgh'
+  switch nargout
+  case 1
+    x_opt = IP(tdata,ydata,x_guess,meta,params, ...
+    forwardHandle, @adjointSolver,loss,lossHess, assignHandle, varargin{:});
+  case 2
+    [x_opt,fval] = IP(tdata,ydata,x_guess,meta,params, ...
+    forwardHandle, @adjointSolver,loss,lossHess, assignHandle, 'ASA',false,varargin{:});
+  case 3
+    [x_opt,fval,exitflag] = IP(tdata,ydata,x_guess,meta,params, ...
+    forwardHandle, @adjointSolver,loss,lossHess, assignHandle, 'ASA',false,varargin{:});
+  end
 case 'IP'
   loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx)*100);
   lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx)*100,dy);
