@@ -1,7 +1,7 @@
 %based on DDFT_nucleation29
 %5 snapshots. kernelSize = 10
 addpath('../../CHACR/GIP')
-runoptim = false;
+rundili = false;
 
 tic;
 L = [5,5];
@@ -17,25 +17,27 @@ alpha = 5;
 modelfunc = @(x) exp(-(x-k0).^2/(2*alpha^2))*0.95;
 params.C = modelfunc(sqrt(k2));
 
-[t1,y1,params] = solver_DDFT([],[],params);
+if ~exist('y1','var')
+  [t1,y1,params] = solver_DDFT([],[],params);
 
-xx = linspace(0,L(1),N(1));
-yy = linspace(0,L(2),N(2));
-[xx,yy] = ndgrid(xx,yy);
-center = L/2;
-radius = 0.06*L(1);
-thickness = 0.01*L(1);
-roi = roi_circle(xx,yy,center,radius,thickness);
+  xx = linspace(0,L(1),N(1));
+  yy = linspace(0,L(2),N(2));
+  [xx,yy] = ndgrid(xx,yy);
+  center = L/2;
+  radius = 0.06*L(1);
+  thickness = 0.01*L(1);
+  roi = roi_circle(xx,yy,center,radius,thickness);
 
-%nucleus
-y0 = y1(end,:)';
-roi = roi(:);
-y02 = 0.045;
-rho = (y02*n - sum(roi.*y0)) / sum(1-roi);
-y0 = roi.*y0 + (1-roi)*rho;
+  %nucleus
+  y0 = y1(end,:)';
+  roi = roi(:);
+  y02 = 0.045;
+  rho = (y02*n - sum(roi.*y0)) / sum(1-roi);
+  y0 = roi.*y0 + (1-roi)*rho;
 
-tspan2 = linspace(0,2.5,100);
-[t2,y2] = solver_DDFT(tspan2,y0,params);
+  tspan2 = linspace(0,2.5,100);
+  [t2,y2] = solver_DDFT(tspan2,y0,params);
+end
 
 ind = 1:20:100;
 tdata = t2(ind);
@@ -59,7 +61,7 @@ customfunc = @(x) hermitefunction(x/k0,kernelSize,[],1);
 k = sqrt(k2);
 params.Csensval = reshape(customfunc(k(:)), [size(k),kernelSize]);
 
-logpdf = @(x) IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x,'Nmu',0,'discrete',true,'cutoff',k0,'mode','eval');
+% logpdf = @(x) IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x,'Nmu',0,'discrete',true,'cutoff',k0,'mode','eval');
 
 % name = 'DDFT_nucleation30_DILI_MAP';
 % resultpath = [largedatapath,name,'.mat'];
@@ -81,7 +83,6 @@ x_start = varload.history(end,:);
 options = [];
 options.init = x_start;
 options.N = 20000;
-options.logpdf = logpdf;
 options.eigthresh = 0.1;
 options.eigthresh_local = 1e-4;
 options.tLIS = 0.1;
@@ -97,5 +98,38 @@ options.saveperstep = 100;
 
 rng(1);
 if rundili
+  options.logpdf = logpdf;
   [chain,result] = mcmc_DILI(options);
+else
+  f = figure('Position',[680 642 392 336]);
+  burnin = 100;
+  p = 0.95; %confidence level
+  xplot = linspace(0,5*k0,200)';
+  varload = load(options.resultpath);
+  cf.func = @(x,coeff) hermitefunction(x/k0,[],coeff,1);
+  cf.sens = @(x,coeff) customfunc(x);
+  yy = linearfuncEval(cf,xplot,varload.chain(burnin:end,:));
+  mu = mean(yy,1);
+  upper = quantile(yy,1-(1-p)/2) - mu;
+  lower = mu - quantile(yy,(1-p)/2);
+
+  main = axes('Position',[0.18,0.2,0.6,0.7]);
+  [hl,hp] = boundedline(xplot/k0,mu',[lower;upper].');
+  hl.LineWidth = 2;
+  xlabel('k/k_0');
+  ylabel('$\hat{C}_2(k)$','Interpreter','latex');
+  xlim([0,5]);
+
+  ymin = min(ydata(:));
+  ymax = max(ydata(:));
+  for i = 1:5
+    axes('Position',[0.82,0.1+0.18*(5-i),0.15,0.15]);
+    imshow((reshape(ydata(i,:),N)-ymin)/(ymax-ymin));
+    colormap(flip(gray));
+  end
+
+  set(findall(f,'-property','FontName'),'FontName','Arial');
+  set(findall(f,'-property','FontWeight'),'FontWeight','normal');
+  set(findall(f,'-property','FontSize'),'FontSize',13);
+  print(f,['C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\PaperIPExpand\DDFT_nucleation30_DILI'],'-dpng','-r500');
 end
