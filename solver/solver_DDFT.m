@@ -62,7 +62,7 @@ for i = 1:2
   ND = N(i);
   I = speye(NI);
   E = sparse(2:ND,1:ND-1,1,ND,ND);
-  D = E+E'-2*I;
+  D = E+E'-2*speye(ND);
   %circulant D, periodic boundary condition
   D(1,ND) = 1;
   D(ND,1) = 1;
@@ -170,7 +170,7 @@ else
     yp0_list = y0_list;
     for ind = 2:length(tdata)
       t0 = tdata(ind);
-      F0 = error(end,:)';
+      F0 = error(ind,:)';
       [y0_list(:,ind-1),yp0_list(:,ind-1)] = ASAinit(F0,discrete,params,t0,sol);
     end
     %serial
@@ -402,10 +402,10 @@ end
 
 function [y0,yp0] = ASAinit(F0,discrete,params,t0,sol)
   y0 = zeros(size(F0));
-  yp0 = F0;
+  yp0 = -F0;
   if discrete
-    y0 = yp0;
-    yp0 = jacobian_mult(params,y0,t0,sol,'force',true);
+    y0 = -yp0;
+    yp0 = -jacobian_mult(params,y0,t0,sol,'force',true);
   end
 end
 
