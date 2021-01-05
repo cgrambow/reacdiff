@@ -84,7 +84,7 @@ if isfield(params,'moreoptions') && ~isempty(params.moreoptions)
 end
 options = odeset;
 if isfield(params,'options') && ~isempty(params.options)
-  options = moreodeset(options,params.options);
+  options = odeset(options,params.options);
 end
 
 if ~ASA
