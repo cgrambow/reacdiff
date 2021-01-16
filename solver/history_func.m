@@ -15,6 +15,8 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
     addParameter(ps,'label',true);
     addParameter(ps,'labelHorizontalAlignment','left');
     addParameter(ps,'targetLineStyle','-.');
+    addParameter(ps,'offset',true); %if both C and mu are optimized. Whether to offset C with a constant term and offset mu with a the linear term
+    addParameter(ps,'muderiv',false); %plot mu'(c) instead of mu
     parse(ps,varargin{:});
     ps = ps.Results;
   else
@@ -26,7 +28,7 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
   namesflag = ismember({'mu','C'},names);
   numFunc = numel(names);
 
-  if all(namesflag)
+  if all(namesflag) && ps.offset
     %calculate current gradient of mu at x=0
     grad0 = customizeFunGrad(pp.params,'mu','grad',0);
     %gradient of the first order basis function of mu
@@ -80,13 +82,23 @@ function history_func(ind,modelfunc,arg,Cspace,pp,property,varargin)
       if numFunc==1
         ax.ColorOrderIndex = j;
       end
-      plot(argj,modelfunc.(name)(argj*xscale),ps.targetLineStyle,'LineWidth',2);
+      if isequal(name,'mu') && ps.muderiv
+        [~,yarg] = modelfunc.(name)(argj*xscale);
+      else
+        yarg = modelfunc.(name)(argj*xscale);
+      end
+      plot(argj,yarg,ps.targetLineStyle,'LineWidth',2);
       ylimtemp = ax.YLim;
       hold on;
       if numFunc==1
         ax.ColorOrderIndex = j;
       end
-      plot(argj,customfunc(argj*xscale,customparams)+yoffset,'LineWidth',2);
+      if isequal(name,'mu') && ps.muderiv
+        [~,yarg] = customfunc(argj*xscale,customparams);
+      else
+        yarg = customfunc(argj*xscale,customparams)+yoffset;
+      end
+      plot(argj,yarg,'-','LineWidth',2);
       if isempty(ps.yyaxisLim)
         ax.YLim = ylimtemp;
       else
