@@ -119,6 +119,8 @@ resultpath = [largedatapath,'DDFT_nucleation30'];
 varload = load(resultpath);
 history = varload.history;
 arg.C = linspace(Crange(1),Crange(2),500);
+ind = [1,11,16,21,36];
+%the following is used on MIT laptop
 ind = [1,4,11,26,35];
 for i = 1:length(ind)
   ax = subtightplot(rowtotal,columntotal,columntotal*3+i,stparg{:});

@@ -53,7 +53,7 @@ if runoptim
   [hessian,hessian_t,dy] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],[],'discrete',true,'cutoff',k0,'assign_suppress',{'C'},'mode','sens');
   save(resultpath,'hessian','hessian_t','dy');
 else
-  addpath('../../External/boundedline-pkg')
+  addpath('../../External/boundedline-pkg/boundedline')
   if ~exist('hessian','var')
     load(resultpath);
   end
