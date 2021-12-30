@@ -37,12 +37,12 @@ alpha = linspace(0,1,Nalpha);
 val = zeros(1,Nalpha);
 gradient = zeros(Nalpha,NC);
 
-for i = 1:length(alpha)
+parfor i = 1:length(alpha)
   [val(i),gradient(i,:)] = IP(tdata,ydata,x_opt*alpha(i),meta,params, ...
   @(tdata,y0,FSA,meta,params) forwardSolver(tdata,y0,FSA,meta,params,tspan), ...
   @adjointSolver, ...
   loss,lossHess, ...
-  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize));
+  @(name,xparam,params) assign(name,xparam,params,Cspace,kernelSize)); disp(i);
 end
 end
 

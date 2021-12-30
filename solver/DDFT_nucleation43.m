@@ -1,5 +1,5 @@
-%based on DDFT_nucleation23
-%use scaling cutoff = k0 for Cspace=isotropic
+%based on DDFT_nucleation32
+%change x_guess the first coeff for mu to 0.4 from 0.5
 addpath('../../CHACR/GIP')
 runoptim = true;
 
@@ -42,28 +42,27 @@ ydata = y2(ind,:);
 toc
 
 
-kernelSize = 2;
-Cspace = 'isotropic';
+kernelSize = 10;
+Cspace = 'isotropic_hermite_scale';
 params.moreoptions = moreodeset('gmresTol',1e-5);
 
 
-resultpath = [largedatapath,'DDFT_nucleation34'];
+resultpath = [largedatapath,'DDFT_nucleation43.mat'];
 
 options = optimoptions('fminunc','OutputFcn', @(x,optimvalues,state) save_opt_history(x,optimvalues,state,resultpath));
-options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region','MaxFunctionEvaluations',10000,'MaxIterations',10000,'FunctionTolerance',1e-7);
+options = optimoptions(options,'HessianFcn','objective','Algorithm','trust-region','MaxFunctionEvaluations',10000,'MaxIterations',10000);
+
+x_guess = [zeros(1,kernelSize),0.4,0,-3];
 
 if runoptim
-  x_guess = [0,0,0.5,0,-3];
   [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',k0);
-  %below is modified on workstation
-  x_guess = [0,-9,0.5,0,-3];
-  [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_guess,'Nmu',3,'discrete',true,'cutoff',1);
 else
   modelfunc.C = @(k) exp(-(k-k0).^2/(2*alpha^2))*0.95;
   modelfunc.mu = @(x) x - x.^2/2 + x.^3/3;
-  arg.C = linspace(0,2,500);
+  Crange = [0,4];
+  arg.C = linspace(Crange(1),Crange(2),500);
   arg.mu = linspace(min(ydata(:)),max(ydata(:)),100);
-  history_production(resultpath,[1,21,38,1797],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,'IP_DDFT_arg',{'Nmu',3},'yyaxisLim',[-0.5,1.5;-1,1.2],'k0',k0,'xlim',[min(ydata(:)),2]);
-  f = gcf;
-  f.Position = [680 337 522 641];
+  history_production(resultpath,[1,10,20,30,40,65],modelfunc,arg,tdata-tdata(1),ydata,params,kernelSize,Cspace,'IP_DDFT_arg',{'Nmu',3,'discrete',true,'cutoff',k0},'yyaxisLim',[-0.5,1.5;-1,1.2],'k0',k0,'xlim',Crange,'showModelSolution',false);
+  % f = gcf;
+  % f.Position = [680 337 522 641];
 end

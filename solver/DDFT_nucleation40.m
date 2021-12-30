@@ -58,6 +58,8 @@ if runoptim
   exitflag = 5;
   while (exitflag==5)
     [x_opt,~,exitflag,params] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_opt,'Nmu',0,'discrete',true);
+    %below is used by workstation
+    [x_opt,~,exitflag] = IP_DDFT(tdata,ydata,params,kernelSize,Cspace,options,x_opt,'Nmu',0,'discrete',true);
   end
 else
   modelfunc.C = @(k) exp(-(k-k0).^2/(2*alpha^2))*0.95;

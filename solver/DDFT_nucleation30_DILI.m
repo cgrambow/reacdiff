@@ -1,7 +1,7 @@
 %based on DDFT_nucleation29
 %5 snapshots. kernelSize = 10
 addpath('../../CHACR/GIP')
-rundili = false;
+rundili = true;
 
 tic;
 L = [5,5];
@@ -47,7 +47,7 @@ toc
 
 kernelSize = 10;
 Cspace = 'user';
-params.moreoptions = moreodeset('gmresTol',1e-5);
+%params.moreoptions = moreodeset('gmresTol',1e-5);
 
 %basis function here is hermitefunction scaled by 1/sqrt(eigenvalue), where eigenvalue is (2n+1) as in x^2 y(x) - y''_n(x) = (2n+1) y_n(x)
 % customfunc = @(x) hermitefunction(x/k0,kernelSize,[],1) ./ sqrt(1:2:(2*kernelSize-1));
@@ -61,7 +61,7 @@ customfunc = @(x) hermitefunction(x/k0,kernelSize,[],1);
 k = sqrt(k2);
 params.Csensval = reshape(customfunc(k(:)), [size(k),kernelSize]);
 
-% logpdf = @(x) IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x,'Nmu',0,'discrete',true,'cutoff',k0,'mode','eval');
+logpdf = @(x) IP_DDFT(tdata,ydata,params,kernelSize,Cspace,[],x,'Nmu',0,'discrete',true,'cutoff',k0,'mode','fgh');
 
 % name = 'DDFT_nucleation30_DILI_MAP';
 % resultpath = [largedatapath,name,'.mat'];

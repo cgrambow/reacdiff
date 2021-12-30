@@ -1,6 +1,6 @@
 %parameter search
-L = [5,5];
-N = [256,256]/2;
+L = [5,5]*2;
+N = [256,256]*2;
 n = prod(N);
 n0 = 0.07;
 sigma = 0.01;
@@ -9,6 +9,8 @@ rng(1);
 n0 = n0 + sigma*randn(N);
 y0 = fftn(n0);
 y0 = y0(:);
+% y00 = y0(1);
+% y0(1) = [];
 
 % %use image?
 % im = imread('cameraman.tif');
@@ -20,6 +22,8 @@ y0 = y0(:);
 
 [k2,k] = formk(N,L);
 k2 = k2(:);
+% k2(1) = [];
+
 kind1 = k{1}; kind2 = k{2};
 [kind1,kind2] = ndgrid(kind1(:),kind2(:));
 theta = angle(kind1+i*kind2);
@@ -35,9 +39,13 @@ C22 = C2;
 J = -k2.*(-C22);
 
 tspan = linspace(0,0.14,100);
-tspan = [0,1.1];
+tspan = [0,1.7];
+tspan = linspace(0,1.07,100);
 % tspan = [0,0.14];
 options = odeset('AbsTol',1e-3);
 [tout,yout] = odeimex(@(t,y) DDFT_nlin(t,y,k2,N),J,tspan,y0);
+% Nt = 10000;
+% h = (tspan(end)-tspan(1))/Nt;
+% [tout,yout] = odeimexez(@(t,y) DDFT_nlin(t,y,k2,N),J,h,Nt,y0,[],1:100:Nt);
 
 figure; k2real(yout(:,end),N);
