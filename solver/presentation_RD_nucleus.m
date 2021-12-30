@@ -73,3 +73,10 @@ Ncutoff = floor(Ncutoff * 4);
 yk = yk((N(1)/2-Ncutoff):(N(1)/2+Ncutoff),(N(2)/2-Ncutoff):(N(2)/2+Ncutoff),:);
 writeVideo(mv,permute(min(yk./max(yk,[],[1,2])*10,1),[1,2,4,3]));
 close(mv);
+
+%write the C2 function into an image
+c=fftshift(ifft2(params.C));
+cl=linspecer(2);
+cc=divergentColormap(cl(1,:),cl(2,:),c,true,max(c(:))*[-1,1],[0,0,0]);
+alpha = abs(c)/max(abs(c(:)));
+imwrite(cc,'C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\figure\presentation_RD_nucleus_C2.png','Alpha',alpha.^0.7);

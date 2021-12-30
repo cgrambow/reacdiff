@@ -101,7 +101,12 @@ if rundili
   options.logpdf = logpdf;
   [chain,result] = mcmc_DILI(options);
 else
-  f = figure('Position',[680 642 392 336]);
+  darkmode = true;
+  if darkmode
+    f = figure('Position',[680 642 392 336],'Color',[0,0,0],'InvertHardCopy','off');
+  else
+    f = figure('Position',[680 642 392 336]);
+  end
   burnin = 100;
   p = 0.95; %confidence level
   xplot = linspace(0,5*k0,200)';
@@ -116,9 +121,20 @@ else
   main = axes('Position',[0.18,0.2,0.6,0.7]);
   [hl,hp] = boundedline(xplot/k0,mu',[lower;upper].');
   hl.LineWidth = 2;
+  hold on;
+  htruth = plot(xplot/k0,modelfunc(xplot),'--k');
   xlabel('k/k_0');
   ylabel('$\hat{C}_2(k)$','Interpreter','latex');
   xlim([0,5]);
+  if darkmode
+    htruth.Color = [1,1,1];
+    hp.FaceColor=hl.Color*0.4;
+  end
+  if darkmode
+    main.Color = [0,0,0];
+    main.XColor = [1,1,1];
+    main.YColor = [1,1,1];
+  end
 
   ymin = min(ydata(:));
   ymax = max(ydata(:));
@@ -131,5 +147,5 @@ else
   set(findall(f,'-property','FontName'),'FontName','Arial');
   set(findall(f,'-property','FontWeight'),'FontWeight','normal');
   set(findall(f,'-property','FontSize'),'FontSize',13);
-  print(f,['C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\PaperIPExpand\DDFT_nucleation30_DILI'],'-dpng','-r500');
+  % print(f,['C:\Users\zhbkl\Dropbox (MIT)\Research\Report 6\PaperIPExpand\DDFT_nucleation30_DILI'],'-dpng','-r500');
 end

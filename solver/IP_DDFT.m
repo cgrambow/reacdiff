@@ -218,6 +218,8 @@ case 'eval'
   fval = [];
   exitflag = [];
 case 'fgh'
+  loss = @(y,ydata,~) MSE(y,ydata,prod(params.dx));
+  lossHess = @(dy,~,~,~) MSE([],[],prod(params.dx),dy);
   switch nargout
   case 1
     x_opt = IP(tdata,ydata,x_guess,meta,params, ...

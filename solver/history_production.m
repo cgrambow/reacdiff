@@ -36,6 +36,8 @@ addParameter(ps,'k0',1); %used to scale k
 addParameter(ps,'dmu_at_0',1); %when meta has both mu and C, rescale so that dmu/dx at 0 has this value
 addParameter(ps,'mu_at_0',0); %offset mu so that mu at 0 has this value
 addParameter(ps,'targetLineStyle','-.');
+addParameter(ps,'offset',true); %if both C and mu are optimized. Whether to offset C with a constant term and offset mu with a the linear term
+addParameter(ps,'muderiv',false); %plot mu'(c) instead of mu
 addParameter(ps,'showModelSolution',true); %plot the model solution at each iteration
 addParameter(ps,'stparg',{0.05,[0.05,0.08],0.05});  %argument for subtightplot
 parse(ps,varargin{:});
