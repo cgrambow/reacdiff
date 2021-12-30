@@ -48,7 +48,7 @@ dt = 1;
 outputstep = Nt;
 thresh = n*1e-5;
 termination = @(t,y,~) event_gradient(t,y,k2(:),thresh);
-if saveresult
+if true
   transform = @(y) [reshape(real(ifftn(reshape(y(1:n),N))),[],1);reshape(real(ifftn(reshape(y(n+(1:n)),N))),[],1)];
 else
   transform = [];
@@ -64,7 +64,7 @@ tic;
 for batch = 1:nbatch
   ybatchall = zeros(4,Nbatch,N(1),N(2),length(outputstep),2);
   A1batchall = zeros(4,Nbatch,nparams);
-  parfor process = 1:4
+  for process = 1:4
     ind = 0;
     ybatch = zeros(Nbatch,N(1),N(2),length(outputstep),2);
     A1batch = zeros(Nbatch,nparams);
